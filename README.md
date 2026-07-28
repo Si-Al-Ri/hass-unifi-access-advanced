@@ -6,6 +6,18 @@
 - If you have Unifi Access set up with UID this will likely *NOT* work although some people have reported success using the free version of UID. 
 - _Camera Feeds are currently not offered by the API and therefore **NOT** supported_.
 
+# ✨ Advanced features
+
+This is the **advanced** edition of the integration. In addition to doors, locks and events, it exposes controls and dashboards that the core and upstream integrations do not:
+
+- **🔘 Per-reader access-method switches** — turn each unlock method on or off per reader, straight from Home Assistant (automations or dashboard): **Face Unlock**, **NFC Card**, **PIN**, **QR Code**, **Mobile Button**, **Mobile Tap**, **Hand Wave** and **Touch Pass**. Only the methods a device actually supports are shown.
+- **🎚️ Face Anti-Spoofing** and **PIN Keypad Layout** selects — tune the Face Unlock security level and switch the PIN pad between standard and randomized layout.
+- **🎟️ Time-limited guest passes** — create, extend and revoke visitor **PIN / QR** passes (single or multi-door) from Home Assistant, with a **bundled Lovelace card** that shows the PIN and QR code while the pass is active.
+- **🕓 "Last Access" sensor + Lovelace card** — see who entered/left which door, with which method, and when, merged across all doors.
+- **🚪 Garage door / gate mode (UGT)** — expose a UGT door as a `cover` (garage door or gate) instead of a lock, switchable per door.
+
+Both dashboard cards are **bundled and auto-registered** (no manual Lovelace resource setup) and ship with built-in translations (`de`, `en`, `it`, `nl`, `zh-Hans`). Jump to [Access method controls](#access-method-controls-nfc-face-unlock-pin-qr-), [Guest passes](#guest-passes) and [Last Access](#last-access) for details.
+
 ## Core integration vs. this HACS integration
 
 Home Assistant now includes a core UniFi Access integration. For most users, the core integration is the recommended starting point.
@@ -24,6 +36,8 @@ The core integration uses button entities/actions for door operations. This foll
 This HACS integration exposes doors as lock entities for convenience. You can unlock/open a door, but locking is unsupported by the UniFi Access API and will only log a warning.
 The core integration supports auto-discovery. This HACS integration does not.
 The core integration may require additional Home Assistant helpers/templates or automations for some workflows that this HACS integration exposes more directly.
+This HACS integration exposes **per-reader access-method switches** (Face Unlock, NFC, PIN, QR, mobile, hand wave, touch pass) and Face-Anti-Spoofing / PIN-Keypad-Layout selects that are not available in core.
+This HACS integration adds **time-limited guest passes** and a **"Last Access"** sensor, each with a bundled Lovelace dashboard card.
 
 # Supported hardware
 - Unifi Access Hub (UAH) :white_check_mark:
@@ -54,6 +68,9 @@ The core integration may require additional Home Assistant helpers/templates or 
     - Doorbell Pressed (binary_sensor). Requires **Unifi Access Reader Pro G1/G2** otherwise always **off**. Only appears when **Use polling** is not selected!
     - Door Lock (lock). You can unlock or open a door, but locking is unsupported and only logs a warning.
     - Event entities (`event`): Door Event and Doorbell Press. These are only created when `Use polling` is not selected.
+    - `Last Access` sensor (websocket mode) — see [Last Access](#last-access).
+    - Per-reader **access-method switches and selects** (Face Unlock, NFC, PIN, QR, …) — see [Access method controls](#access-method-controls-nfc-face-unlock-pin-qr-).
+- **Guest pass** actions and the two **bundled dashboard cards** are also available — see [✨ Advanced features](#-advanced-features).
 
 
 # Installation (manual)
@@ -70,6 +87,9 @@ The core integration may require additional Home Assistant helpers/templates or 
     - Doorbell Pressed (binary_sensor). Requires **Unifi Access Reader Pro G1/G2** otherwise always **off**. Only appears when **Use polling** is not selected!
     - Door Lock (lock). You can unlock or open a door, but locking is unsupported and only logs a warning.
     - Event entities (`event`): Door Event and Doorbell Press. These are only created when `Use polling` is not selected.
+    - `Last Access` sensor (websocket mode) — see [Last Access](#last-access).
+    - Per-reader **access-method switches and selects** (Face Unlock, NFC, PIN, QR, …) — see [Access method controls](#access-method-controls-nfc-face-unlock-pin-qr-).
+- **Guest pass** actions and the two **bundled dashboard cards** are also available — see [✨ Advanced features](#-advanced-features).
 
 # Events
 When websocket mode is enabled (`Use polling` is **not** selected), this integration creates two Home Assistant `event` entities for each door:
@@ -126,6 +146,104 @@ You are able to select one of the following rules via the `input_select`:
 - **reset**: clear all lock rules
 - **lock_early**: locks the door if it's currently on an unlock schedule.
 - **lock_now**: locks the door if it's currently on an unlock schedule OR if it's unlocked temporarily via a locking rule.
+
+# Access method controls (NFC, Face Unlock, PIN, QR, …)
+
+For every reader / intercom the controller reports, this integration creates entities to enable or disable each unlock method directly from Home Assistant — no need to open the UniFi Access app. Only the methods a device actually supports are created.
+
+**Switches** (per reader):
+
+| Entity | Method |
+| --- | --- |
+| `Face Unlock` | Biometric face unlock |
+| `NFC Card` | NFC / UA card |
+| `PIN` | PIN code on the keypad |
+| `QR Code` | QR code |
+| `Mobile Button` | UniFi Identity app button |
+| `Mobile Tap` | Bluetooth tap-to-unlock |
+| `Hand Wave` | Wave-to-unlock gesture |
+| `Touch Pass` | Apple/Google wallet pass |
+
+**Selects** (per reader):
+
+- `Face Anti-Spoofing` — mirrors the Face Unlock security slider: `Off (long range)`, `Off (medium range)`, `Medium (short range)`, `High (short range)`.
+- `PIN Keypad Layout` — `Standard` or `Randomized` (shuffled keypad).
+
+Requirements: UniFi Access **3.3.10 or later**, websocket mode (i.e. `Use polling` **not** selected). Changes made in the UniFi Access app are picked up automatically.
+
+### Example: disable Face Unlock at night
+
+```yaml
+alias: Disable Face Unlock at night
+triggers:
+  - platform: time
+    at: "22:00:00"
+actions:
+  - action: switch.turn_off
+    target:
+      entity_id: switch.front_door_face_unlock
+mode: single
+```
+
+# Guest passes
+
+Create time-limited visitor passes (PIN and/or QR) from Home Assistant without sharing your main credentials. Passes can cover a single door or several doors, and can be extended or revoked at any time.
+
+**Actions** (domain `unifi_access`):
+
+- `create_guest_pass` — `name`, `door_id` (one id or a list), `valid_from`, `valid_until`, `credentials` (`pin`, `qr` or both). Returns the generated **PIN in plaintext** and/or the **QR code image**.
+- `extend_guest_pass` — `visitor_id`, `valid_from`, `valid_until` (reactivate / prolong an existing pass, keeping its PIN/QR).
+- `revoke_guest_pass` — `visitor_id`.
+- `list_guest_passes` — returns the available doors and all passes.
+
+### Bundled Lovelace card
+
+Add the card `custom:unifi-access-guest-card` to a dashboard to create, view, extend and revoke passes from a UI. It shows the **PIN and QR code while a pass is active**, offers a multi-door checklist, and updates itself when a guest arrives.
+
+```yaml
+type: custom:unifi-access-guest-card
+```
+
+Requirements: API token with `edit:visitor` + `view:credential` permissions; QR passes need UniFi Access **3.3.10 or later**.
+
+### Example: create a 3-hour PIN pass
+
+```yaml
+action: unifi_access.create_guest_pass
+data:
+  name: Cleaner
+  door_id: <your_door_id>
+  valid_from: "{{ now() }}"
+  valid_until: "{{ now() + timedelta(hours=3) }}"
+  credentials: [pin]
+```
+
+# Last Access
+
+For each door (websocket mode only) a `Last Access` sensor exposes the most recent access: the timestamp as its state, plus `actor`, `method`, `direction`, `result` and `reader` attributes, and a rolling `events` history of the most recent accesses.
+
+### Bundled Lovelace card
+
+Add `custom:unifi-access-last-access-card` to a dashboard to see recent accesses across all doors — who, direction, method, reader and time — with an expandable detail view. Doorbell rings appear as their own entries.
+
+```yaml
+type: custom:unifi-access-last-access-card
+max_logs: 5          # number of entries to show (default 5)
+# entities:          # optional — restrict to specific last-access sensors
+#   - sensor.front_door_last_access
+```
+
+# Garage door / gate (UGT)
+
+A **UGT** (Unifi Gate Hub) door can be modeled as a `cover` instead of a lock. An `Entity Type` select is created for UGT doors with the options `Lock (Door)` (default), `Garage Door` and `Gate`.
+
+Switching to `Garage Door` or `Gate` replaces the lock entity with:
+
+- a `cover` entity (open / close / stop),
+- `Opening Timeout` and `Closing Timeout` number helpers (used to infer travel state and expose an `obstruction_detected` attribute),
+- a `Clear Obstruction` button.
+
+The change is applied in place without reloading the whole integration.
 
 # Example automations
 
