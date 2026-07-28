@@ -1,0 +1,55 @@
+create_guest_pass:
+  fields:
+    name:
+      required: true
+      example: Handwerker Müller
+      selector:
+        text:
+    door_id:
+      required: true
+      example: 280842ce-76b2-4fbe-9527-c79195b95709
+      selector:
+        text:
+          multiple: true
+    valid_from:
+      required: true
+      selector:
+        datetime:
+    valid_until:
+      required: true
+      selector:
+        datetime:
+    credentials:
+      required: false
+      default:
+        - pin
+      selector:
+        select:
+          multiple: true
+          options:
+            - pin
+            - qr
+
+revoke_guest_pass:
+  fields:
+    visitor_id:
+      required: true
+      selector:
+        text:
+
+extend_guest_pass:
+  fields:
+    visitor_id:
+      required: true
+      selector:
+        text:
+    valid_from:
+      required: true
+      selector:
+        datetime:
+    valid_until:
+      required: true
+      selector:
+        datetime:
+
+list_guest_passes:

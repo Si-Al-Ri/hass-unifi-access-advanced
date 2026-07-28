@@ -1,0 +1,264 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Device is already configured",
+      "reauth_successful": "Re-authentication was successful",
+      "reconfigure_successful": "Re-configuration was successful"
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_api_key": "Invalid API key",
+      "ssl_error": "Error validating SSL certificate",
+      "unknown": "Unexpected error"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "api_token": "API token",
+          "host": "Host",
+          "use_polling": "Use polling",
+          "verify_ssl": "Verify SSL certificate"
+        },
+        "data_description": {
+          "host": "Hostname or IP address of the UniFi Access controller",
+          "api_token": "API token generated in the UniFi Access settings",
+          "verify_ssl": "Verify the SSL certificate of the controller",
+          "use_polling": "Use polling instead of websocket push updates"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate UniFi Access",
+        "description": "The API token for {host} is no longer valid. Please enter a new API token.",
+        "data": {
+          "api_token": "API token"
+        }
+      },
+      "reconfigure": {
+        "data": {
+          "api_token": "API token",
+          "host": "Host",
+          "use_polling": "Use polling",
+          "verify_ssl": "Verify SSL certificate"
+        },
+        "data_description": {
+          "host": "Hostname or IP address of the UniFi Access controller",
+          "api_token": "API token generated in the UniFi Access settings",
+          "verify_ssl": "Verify the SSL certificate of the controller",
+          "use_polling": "Use polling instead of websocket push updates"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "access_door_dps": {
+        "name": "Door Position Sensor"
+      },
+      "doorbell_status": {
+        "name": "Doorbell"
+      }
+    },
+    "event": {
+      "access_event": {
+        "name": "Door Event",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "unifi_access_entry": "Entry",
+              "unifi_access_exit": "Exit",
+              "unifi_access_access": "Access"
+            }
+          }
+        }
+      },
+      "doorbell_event": {
+        "name": "Doorbell Press",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "unifi_access_doorbell_start": "Doorbell Start",
+              "unifi_access_doorbell_stop": "Doorbell Stop",
+              "ring": "Ring"
+            }
+          }
+        }
+      }
+    },
+    "image": {
+      "door_thumbnail": {
+        "name": "Thumbnail"
+      }
+    },
+    "lock": {
+      "access_door": {
+        "name": "{door_name}"
+      }
+    },
+    "number": {
+      "door_lock_rule_interval": {
+        "name": "Rule Interval (min)"
+      },
+      "door_open_time": {
+        "name": "Opening Timeout"
+      },
+      "door_close_time": {
+        "name": "Closing Timeout"
+      }
+    },
+    "select": {
+      "face_anti_spoofing": {
+        "name": "Face Anti-Spoofing",
+        "state": {
+          "no_far": "Off (long range)",
+          "no_medium": "Off (medium range)",
+          "medium_near": "Medium (short range)",
+          "high_near": "High (short range)"
+        }
+      },
+      "pin_keypad_layout": {
+        "name": "PIN Keypad Layout",
+        "state": {
+          "standard": "Standard",
+          "shuffle": "Randomized"
+        }
+      },
+      "door_lock_rules": {
+        "name": "Door Lock Rule",
+        "state": {
+          "custom": "Custom (set interval)",
+          "keep_lock": "Keep it locked",
+          "keep_unlock": "Keep it unlocked",
+          "lock_early": "Lock early",
+          "lock_now": "Lock now",
+          "reset": "Reset rule"
+        }
+      },
+      "entity_type": {
+        "name": "Entity Type",
+        "state": {
+          "lock": "Lock (Door)",
+          "garage": "Garage Door",
+          "gate": "Gate"
+        }
+      }
+    },
+    "sensor": {
+      "door_lock_rule": {
+        "name": "Door Lock Rule",
+        "state": {
+          "custom": "Custom",
+          "keep_lock": "Locked",
+          "keep_unlock": "Unlocked"
+        }
+      },
+      "door_lock_rule_ended_time": {
+        "name": "Rule End Time"
+      },
+      "last_access": {
+        "name": "Last Access"
+      }
+    },
+    "switch": {
+      "evacuation": {
+        "name": "Evacuation"
+      },
+      "lockdown": {
+        "name": "Lockdown"
+      },
+      "face_unlock": {
+        "name": "Face Unlock"
+      },
+      "nfc": {
+        "name": "NFC Card"
+      },
+      "bt_button": {
+        "name": "Mobile Button"
+      },
+      "bt_tap": {
+        "name": "Mobile Tap"
+      },
+      "pin_code": {
+        "name": "PIN"
+      },
+      "wave": {
+        "name": "Hand Wave"
+      },
+      "qr_code": {
+        "name": "QR Code"
+      },
+      "touch_pass": {
+        "name": "Touch Pass"
+      }
+    },
+    "button": {
+      "clear_obstruction": {
+        "name": "Clear Obstruction"
+      }
+    },
+    "cover": {
+      "access_cover": {
+        "name": "{door_name}"
+      }
+    }
+  },
+  "services": {
+    "create_guest_pass": {
+      "name": "Create guest pass",
+      "description": "Creates a time-limited UniFi Access guest pass (visitor) with a PIN or QR code.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "Name of the guest."
+        },
+        "door_id": {
+          "name": "Door IDs",
+          "description": "One or more IDs of the doors the guest may access."
+        },
+        "valid_from": {
+          "name": "Valid from",
+          "description": "Start of the access window."
+        },
+        "valid_until": {
+          "name": "Valid until",
+          "description": "End of the access window."
+        },
+        "credentials": {
+          "name": "Credential types",
+          "description": "Which credentials to issue — PIN code, QR code, or both."
+        }
+      }
+    },
+    "revoke_guest_pass": {
+      "name": "Revoke guest pass",
+      "description": "Revokes a guest pass — the PIN or QR code stops working immediately.",
+      "fields": {
+        "visitor_id": {
+          "name": "Visitor ID",
+          "description": "ID of the guest pass to revoke."
+        }
+      }
+    },
+    "extend_guest_pass": {
+      "name": "Extend / reactivate guest pass",
+      "description": "Assigns a new validity window to an existing guest pass, reactivating it without re-creating the guest. The PIN or QR code stays the same.",
+      "fields": {
+        "visitor_id": {
+          "name": "Visitor ID",
+          "description": "ID of the guest pass to extend."
+        },
+        "valid_from": {
+          "name": "Valid from",
+          "description": "New start of the access window."
+        },
+        "valid_until": {
+          "name": "Valid until",
+          "description": "New end of the access window."
+        }
+      }
+    },
+    "list_guest_passes": {
+      "name": "List guest passes",
+      "description": "Returns the available doors and all registered guest passes; used by the dashboard card."
+    }
+  }
+}

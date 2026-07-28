@@ -1,0 +1,264 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Das Gerät wurde bereits konfiguriert",
+      "reauth_successful": "Erneute Authentifizierung war erfolgreich",
+      "reconfigure_successful": "Neukonfiguration war erfolgreich"
+    },
+    "error": {
+      "cannot_connect": "Verbindung fehlgeschlagen",
+      "invalid_api_key": "Ungültiger API-Schlüssel",
+      "ssl_error": "Fehler bei der Überprüfung des SSL-Zertifikats",
+      "unknown": "Unerwarteter Fehler"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "api_token": "API-Token",
+          "host": "Host",
+          "use_polling": "Intervallbasierte Abfrage",
+          "verify_ssl": "SSL-Zertifikat überprüfen"
+        },
+        "data_description": {
+          "host": "Hostname oder IP-Adresse des UniFi Access Controllers",
+          "api_token": "API-Token aus den UniFi Access Einstellungen",
+          "verify_ssl": "SSL-Zertifikat des Controllers überprüfen",
+          "use_polling": "Abfrage statt WebSocket-Push-Updates verwenden"
+        }
+      },
+      "reauth_confirm": {
+        "title": "UniFi Access erneut authentifizieren",
+        "description": "Das API-Token für {host} ist nicht mehr gültig. Bitte gib ein neues API-Token ein.",
+        "data": {
+          "api_token": "API-Token"
+        }
+      },
+      "reconfigure": {
+        "data": {
+          "api_token": "API-Token",
+          "host": "Host",
+          "use_polling": "Intervallbasierte Abfrage",
+          "verify_ssl": "SSL-Zertifikat überprüfen"
+        },
+        "data_description": {
+          "host": "Hostname oder IP-Adresse des UniFi Access Controllers",
+          "api_token": "API-Token aus den UniFi Access Einstellungen",
+          "verify_ssl": "SSL-Zertifikat des Controllers überprüfen",
+          "use_polling": "Abfrage statt WebSocket-Push-Updates verwenden"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "access_door_dps": {
+        "name": "Türpositionssensor"
+      },
+      "doorbell_status": {
+        "name": "Türklingel"
+      }
+    },
+    "event": {
+      "access_event": {
+        "name": "Zutrittsereignis",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "unifi_access_entry": "Zutritt",
+              "unifi_access_exit": "Austritt",
+              "unifi_access_access": "Zugang"
+            }
+          }
+        }
+      },
+      "doorbell_event": {
+        "name": "Türklingel betätigt",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "unifi_access_doorbell_start": "Klingel Start",
+              "unifi_access_doorbell_stop": "Klingel Stop",
+              "ring": "Läuten"
+            }
+          }
+        }
+      }
+    },
+    "image": {
+      "door_thumbnail": {
+        "name": "Vorschaubild"
+      }
+    },
+    "lock": {
+      "access_door": {
+        "name": "{door_name}"
+      }
+    },
+    "number": {
+      "door_lock_rule_interval": {
+        "name": "Regel-Intervall (min)"
+      },
+      "door_open_time": {
+        "name": "Öffnungs-Timeout"
+      },
+      "door_close_time": {
+        "name": "Schließ-Timeout"
+      }
+    },
+    "select": {
+      "face_anti_spoofing": {
+        "name": "Gesichtserkennung Anti-Spoofing",
+        "state": {
+          "no_far": "Aus (große Reichweite)",
+          "no_medium": "Aus (mittlere Reichweite)",
+          "medium_near": "Mittel (kurze Reichweite)",
+          "high_near": "Hoch (kurze Reichweite)"
+        }
+      },
+      "pin_keypad_layout": {
+        "name": "PIN-Tastaturlayout",
+        "state": {
+          "standard": "Standard",
+          "shuffle": "Zufällig ausgewählt"
+        }
+      },
+      "door_lock_rules": {
+        "name": "Türschloss-Regel",
+        "state": {
+          "custom": "Benutzerdefiniert (Intervall festlegen)",
+          "keep_lock": "Abgeschlossen halten",
+          "keep_unlock": "Aufgeschlossen halten",
+          "lock_early": "Frühzeitig abschließen",
+          "lock_now": "Jetzt abschließen",
+          "reset": "Regel zurücksetzen"
+        }
+      },
+      "entity_type": {
+        "name": "Entitätstyp",
+        "state": {
+          "lock": "Schloss (Tür)",
+          "garage": "Garagentor",
+          "gate": "Tor"
+        }
+      }
+    },
+    "sensor": {
+      "door_lock_rule": {
+        "name": "Türschloss-Regel",
+        "state": {
+          "custom": "Benutzerdefiniert",
+          "keep_lock": "Abgeschlossen",
+          "keep_unlock": "Aufgeschlossen"
+        }
+      },
+      "door_lock_rule_ended_time": {
+        "name": "Regel Ende"
+      },
+      "last_access": {
+        "name": "Letzter Zutritt"
+      }
+    },
+    "switch": {
+      "evacuation": {
+        "name": "Evakuierung"
+      },
+      "lockdown": {
+        "name": "Abriegelung"
+      },
+      "face_unlock": {
+        "name": "Gesichtsentriegelung"
+      },
+      "nfc": {
+        "name": "NFC-Karte"
+      },
+      "bt_button": {
+        "name": "Mobile Taste"
+      },
+      "bt_tap": {
+        "name": "Mobiles Tippen"
+      },
+      "pin_code": {
+        "name": "PIN"
+      },
+      "wave": {
+        "name": "Winken"
+      },
+      "qr_code": {
+        "name": "QR-Code"
+      },
+      "touch_pass": {
+        "name": "Touch Pass"
+      }
+    },
+    "button": {
+      "clear_obstruction": {
+        "name": "Hindernis zurücksetzen"
+      }
+    },
+    "cover": {
+      "access_cover": {
+        "name": "{door_name}"
+      }
+    }
+  },
+  "services": {
+    "create_guest_pass": {
+      "name": "Gastzugang erstellen",
+      "description": "Erstellt einen zeitlich begrenzten UniFi-Access-Gastzugang (Besucher) mit PIN- oder QR-Code.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "Name des Gasts."
+        },
+        "door_id": {
+          "name": "Tür-IDs",
+          "description": "Eine oder mehrere IDs der Türen, die der Gast nutzen darf."
+        },
+        "valid_from": {
+          "name": "Gültig ab",
+          "description": "Beginn des Zugangszeitraums."
+        },
+        "valid_until": {
+          "name": "Gültig bis",
+          "description": "Ende des Zugangszeitraums."
+        },
+        "credentials": {
+          "name": "Zugangsarten",
+          "description": "Welche Zugangsarten ausgegeben werden — PIN-Code, QR-Code oder beides."
+        }
+      }
+    },
+    "revoke_guest_pass": {
+      "name": "Gastzugang widerrufen",
+      "description": "Widerruft einen Gastzugang — der PIN- bzw. QR-Code funktioniert sofort nicht mehr.",
+      "fields": {
+        "visitor_id": {
+          "name": "Besucher-ID",
+          "description": "ID des zu widerrufenden Gastzugangs."
+        }
+      }
+    },
+    "extend_guest_pass": {
+      "name": "Gastzugang verlängern / reaktivieren",
+      "description": "Weist einem bestehenden Gastzugang einen neuen Gültigkeitszeitraum zu und reaktiviert ihn, ohne den Gast neu anzulegen. PIN- bzw. QR-Code bleiben gleich.",
+      "fields": {
+        "visitor_id": {
+          "name": "Besucher-ID",
+          "description": "ID des zu verlängernden Gastzugangs."
+        },
+        "valid_from": {
+          "name": "Gültig ab",
+          "description": "Neuer Beginn des Zugangszeitraums."
+        },
+        "valid_until": {
+          "name": "Gültig bis",
+          "description": "Neues Ende des Zugangszeitraums."
+        }
+      }
+    },
+    "list_guest_passes": {
+      "name": "Gastzugänge auflisten",
+      "description": "Gibt die verfügbaren Türen und alle registrierten Gastzugänge zurück; wird von der Dashboard-Karte verwendet."
+    }
+  }
+}
