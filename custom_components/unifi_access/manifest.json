@@ -1,6 +1,7 @@
 {
   "domain": "unifi_access",
   "name": "Unifi Access",
+  "after_dependencies": ["http", "frontend"],
   "codeowners": ["@Si-Al-Ri"],
   "config_flow": true,
   "documentation": "https://github.com/Si-Al-Ri/hass-unifi-access-advanced/blob/main/README.md",
