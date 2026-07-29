@@ -228,15 +228,53 @@ class GuestPassManager:
     async def async_extend(
         self, visitor_id: str, valid_from: int, valid_until: int
     ) -> dict[str, Any]:
-        """Reactivate / extend a pass with a new validity window."""
-        await self._hub.async_update_visitor_window(visitor_id, valid_from, valid_until)
+        """Reactivate / extend a pass with a new validity window.
+
+        The controller removes a pass's credentials once it has ended (expired
+        or cancelled). When such a pass is reactivated, its PIN/QR are
+        re-assigned so they work again; a PIN is regenerated if the stored
+        plaintext is no longer available. Credentials of a still-active pass
+        are left untouched.
+        """
         record = self._passes.get(visitor_id)
+        creds = (record or {}).get("credentials", [])
+        now = int(time.time())
+
+        visitor = await self._hub.async_get_visitor(visitor_id)
+        was_inactive = (
+            visitor is None
+            or status_key(visitor.get("status"), int(visitor.get("end_time") or 0), now)
+            not in _ACTIVE_KEYS
+        )
+
+        await self._hub.async_update_visitor_window(visitor_id, valid_from, valid_until)
+
+        pin = (record or {}).get("pin")
+        qr_image = (record or {}).get("qr_image")
+        if was_inactive:
+            if "pin" in creds:
+                if pin:
+                    # Restore the stored PIN; a still-valid PIN raises, which
+                    # is fine — it remains usable.
+                    with contextlib.suppress(RuntimeError):
+                        await self._hub.async_assign_visitor_pin(visitor_id, pin)
+                else:
+                    pin = await self._hub.async_generate_pin()
+                    await self._hub.async_assign_visitor_pin(visitor_id, pin)
+            if "qr" in creds:
+                await self._hub.async_assign_visitor_qr(visitor_id)
+                qr_image = await self._async_qr_data_uri(visitor_id)
+
         if record is not None:
             record["valid_from"] = valid_from
             record["valid_until"] = valid_until
             # Clear the previous arrival so the new window is shown until the
             # guest arrives again.
             record.pop("arrived_at", None)
+            if pin:
+                record["pin"] = pin
+            if qr_image:
+                record["qr_image"] = qr_image
             await self._async_save()
 
         result: dict[str, Any] = {
@@ -247,13 +285,12 @@ class GuestPassManager:
             "arrived_at": None,
             "name": (record or {}).get("name"),
             "door_name": (record or {}).get("door_name"),
-            "credentials": (record or {}).get("credentials", []),
+            "credentials": creds,
         }
-        if record:
-            if record.get("pin"):
-                result["pin"] = record["pin"]
-            if record.get("qr_image"):
-                result["qr_image"] = record["qr_image"]
+        if pin:
+            result["pin"] = pin
+        if qr_image:
+            result["qr_image"] = qr_image
         return result
 
     async def async_revoke(self, visitor_id: str) -> None:
