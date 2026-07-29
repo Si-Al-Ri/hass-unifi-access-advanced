@@ -704,20 +704,19 @@ class UnifiAccessGuestCard extends HTMLElement {
       .map((c) => (c === "qr" ? "QR" : "PIN"))
       .join(" + ");
 
-    // "Angekommen <time>" in green once the pass has been used at least
-    // once — stays permanent across status changes (revoked / expired still
-    // show "Angekommen <time>"). The "bis <time>" fallback only applies
-    // while nobody has arrived yet.
+    // Show "Angekommen <time>" in green only while the pass is active
+    // (arrived) or expired; otherwise show the validity end time.
+    const showArrived =
+      p.arrived_at && (p.status === "arrived" || p.status === "expired");
     let tail;
-    if (p.arrived_at) {
+    if (showArrived) {
       const arrived = new Date(p.arrived_at * 1000).toLocaleString();
       tail =
         `<span style="color:#66bb6a">` +
         `${this._esc(this._t("arrived_prefix"))}${this._esc(arrived)}` +
         `</span>`;
     } else {
-      tail =
-        `${this._esc(this._t("until_prefix"))}${this._esc(until)}`;
+      tail = `${this._esc(this._t("until_prefix"))}${this._esc(until)}`;
     }
 
     const wrap = document.createElement("div");

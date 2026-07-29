@@ -234,6 +234,9 @@ class GuestPassManager:
         if record is not None:
             record["valid_from"] = valid_from
             record["valid_until"] = valid_until
+            # Clear the previous arrival so the new window is shown until the
+            # guest arrives again.
+            record.pop("arrived_at", None)
             await self._async_save()
 
         result: dict[str, Any] = {
@@ -241,6 +244,7 @@ class GuestPassManager:
             "valid_from": valid_from,
             "valid_until": valid_until,
             "status": "upcoming",
+            "arrived_at": None,
             "name": (record or {}).get("name"),
             "door_name": (record or {}).get("door_name"),
             "credentials": (record or {}).get("credentials", []),
