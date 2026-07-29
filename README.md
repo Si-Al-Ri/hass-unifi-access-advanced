@@ -171,6 +171,10 @@ For every reader / intercom the controller reports, this integration creates ent
 
 Requirements: UniFi Access **3.3.10 or later**, websocket mode (i.e. `Use polling` **not** selected). Changes made in the UniFi Access app are picked up automatically.
 
+<img src="screenshots/Control-Entitys-Intercom_ReaderPro.png" alt="Access-method control entities for an Intercom / Reader Pro" width="420">
+
+*Per-reader controls: Face Unlock, Anti-Spoofing level, Mobile Button/Tap, NFC, PIN, PIN keypad layout and QR code.*
+
 ### Example: disable Face Unlock at night
 
 ```yaml
@@ -189,6 +193,10 @@ mode: single
 
 Create time-limited visitor passes (PIN and/or QR) from Home Assistant without sharing your main credentials. Passes can cover a single door or several doors, and can be extended or revoked at any time.
 
+<img src="screenshots/Guest-Card.png" alt="Guest pass card listing active, revoked and arrived passes" width="460">
+
+*The guest pass card: each pass shows its doors, credential types, validity or arrival time, and status.*
+
 **Actions** (domain `unifi_access`):
 
 - `create_guest_pass` — `name`, `door_id` (one id or a list), `valid_from`, `valid_until`, `credentials` (`pin`, `qr` or both). Returns the generated **PIN in plaintext** and/or the **QR code image**.
@@ -203,6 +211,17 @@ Add the card `custom:unifi-access-guest-card` to a dashboard to create, view, ex
 ```yaml
 type: custom:unifi-access-guest-card
 ```
+
+<p>
+  <img src="screenshots/Create-New-Guest-Menu.png" alt="Create-guest-pass form" width="360">
+  <img src="screenshots/Guest-QR_PIN-View.png" alt="Expanded pass showing PIN and QR code" width="300">
+</p>
+
+*Left: the create form (name, doors, validity window, PIN/QR). Right: an active pass expanded to show its PIN and QR code.*
+
+<img src="screenshots/Guest-Extend_Revoke-Function.png" alt="Extend and revoke actions on a pass" width="440">
+
+*Tap a pass to extend or revoke it; credentials are hidden once a pass is no longer active.*
 
 Requirements: API token with `edit:visitor` + `view:credential` permissions; QR passes need UniFi Access **3.3.10 or later**.
 
@@ -232,6 +251,13 @@ max_logs: 5          # number of entries to show (default 5)
 # entities:          # optional — restrict to specific last-access sensors
 #   - sensor.front_door_last_access
 ```
+
+<p>
+  <img src="screenshots/Last-Access-Card-Overview.png" alt="Last-access card overview" width="440">
+  <img src="screenshots/Last-Acces-Detail-View.png" alt="Last-access card with an entry expanded" width="440">
+</p>
+
+*Left: recent accesses across all doors, including doorbell rings and denied attempts. Right: an entry expanded to show time, person, direction, method, reader, door and result.*
 
 # Garage door / gate (UGT)
 

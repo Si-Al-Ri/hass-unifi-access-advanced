@@ -164,3 +164,6 @@ cython_debug/
 
 # macOS
 .DS_Store
+
+# Local unredacted screenshot originals
+screenshots/.orig/
