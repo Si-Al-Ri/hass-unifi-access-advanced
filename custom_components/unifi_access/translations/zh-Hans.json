@@ -157,5 +157,29 @@
         "name": "{door_name}"
       }
     }
+  },
+  "services": {
+    "trigger_doorbell": {
+      "name": "触发门铃",
+      "description": "在对讲机或读卡器上响铃（需要 UniFi Access 4.0.10 或更高版本）。",
+      "fields": {
+        "door_id": {
+          "name": "门 ID",
+          "description": "在该门的对讲机/读卡器上响铃。"
+        },
+        "device_id": {
+          "name": "设备 ID",
+          "description": "在指定的对讲机/读卡器上响铃。"
+        },
+        "room_name": {
+          "name": "房间名称",
+          "description": "要呼叫的对讲机目录条目（可选）。"
+        },
+        "cancel": {
+          "name": "取消",
+          "description": "停止仍在响铃的门铃，而不是开始响铃。"
+        }
+      }
+    }
   }
 }

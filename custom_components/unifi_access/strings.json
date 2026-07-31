@@ -259,6 +259,28 @@
     "list_guest_passes": {
       "name": "List guest passes",
       "description": "Returns the available doors and all registered guest passes; used by the dashboard card."
+    },
+    "trigger_doorbell": {
+      "name": "Trigger doorbell",
+      "description": "Rings the doorbell on an intercom or reader (requires UniFi Access 4.0.10 or later).",
+      "fields": {
+        "door_id": {
+          "name": "Door ID",
+          "description": "Ring the doorbell of this door's intercom/reader. Use either this or a device ID."
+        },
+        "device_id": {
+          "name": "Device ID",
+          "description": "Ring the doorbell on this specific intercom/reader. Use either this or a door ID."
+        },
+        "room_name": {
+          "name": "Room name",
+          "description": "Optional intercom directory entry to call."
+        },
+        "cancel": {
+          "name": "Cancel",
+          "description": "Stop a doorbell that is still ringing instead of starting one."
+        }
+      }
     }
   }
 }

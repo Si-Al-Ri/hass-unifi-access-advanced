@@ -157,5 +157,29 @@
         "name": "{door_name}"
       }
     }
+  },
+  "services": {
+    "trigger_doorbell": {
+      "name": "Deurbel activeren",
+      "description": "Laat de deurbel op een intercom of lezer overgaan (vereist UniFi Access 4.0.10 of nieuwer).",
+      "fields": {
+        "door_id": {
+          "name": "Deur-ID",
+          "description": "Belt bij de intercom/lezer van deze deur."
+        },
+        "device_id": {
+          "name": "Apparaat-ID",
+          "description": "Belt bij deze specifieke intercom/lezer."
+        },
+        "room_name": {
+          "name": "Kamernaam",
+          "description": "Optionele vermelding uit de intercomlijst om te bellen."
+        },
+        "cancel": {
+          "name": "Annuleren",
+          "description": "Stopt een nog rinkelende deurbel in plaats van er een te starten."
+        }
+      }
+    }
   }
 }

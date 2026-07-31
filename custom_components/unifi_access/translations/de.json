@@ -259,6 +259,28 @@
     "list_guest_passes": {
       "name": "Gastzugänge auflisten",
       "description": "Gibt die verfügbaren Türen und alle registrierten Gastzugänge zurück; wird von der Dashboard-Karte verwendet."
+    },
+    "trigger_doorbell": {
+      "name": "Türklingel auslösen",
+      "description": "Löst die Türklingel an einem Intercom oder Reader aus (erfordert UniFi Access 4.0.10 oder neuer).",
+      "fields": {
+        "door_id": {
+          "name": "Tür-ID",
+          "description": "Klingelt am Intercom/Reader dieser Tür. Entweder dieses Feld oder eine Geräte-ID angeben."
+        },
+        "device_id": {
+          "name": "Geräte-ID",
+          "description": "Klingelt an diesem bestimmten Intercom/Reader. Entweder dieses Feld oder eine Tür-ID angeben."
+        },
+        "room_name": {
+          "name": "Raumname",
+          "description": "Optionaler Eintrag aus dem Intercom-Verzeichnis, der gerufen wird."
+        },
+        "cancel": {
+          "name": "Abbrechen",
+          "description": "Ein noch laufendes Klingeln beenden, statt eines zu starten."
+        }
+      }
     }
   }
 }

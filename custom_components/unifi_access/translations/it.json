@@ -157,5 +157,29 @@
         "name": "{door_name}"
       }
     }
+  },
+  "services": {
+    "trigger_doorbell": {
+      "name": "Attiva campanello",
+      "description": "Suona il campanello su un intercom o lettore (richiede UniFi Access 4.0.10 o successivo).",
+      "fields": {
+        "door_id": {
+          "name": "ID porta",
+          "description": "Suona il campanello dell'intercom/lettore di questa porta."
+        },
+        "device_id": {
+          "name": "ID dispositivo",
+          "description": "Suona il campanello su questo intercom/lettore specifico."
+        },
+        "room_name": {
+          "name": "Nome stanza",
+          "description": "Voce opzionale della rubrica dell'intercom da chiamare."
+        },
+        "cancel": {
+          "name": "Annulla",
+          "description": "Interrompe un campanello ancora in corso invece di avviarne uno."
+        }
+      }
+    }
   }
 }

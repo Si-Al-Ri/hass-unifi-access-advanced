@@ -14,6 +14,7 @@ This is the **advanced** edition of the integration. In addition to doors, locks
 - **🎚️ Face Anti-Spoofing** and **PIN Keypad Layout** selects — tune the Face Unlock security level and switch the PIN pad between standard and randomized layout.
 - **🎟️ Time-limited guest passes** — create, extend and revoke visitor **PIN / QR** passes (single or multi-door) from Home Assistant, with a **bundled Lovelace card** that shows the PIN and QR code while the pass is active.
 - **🕓 "Last Access" sensor + Lovelace card** — see who entered/left which door, with which method, and when, merged across all doors.
+- **🔔 Trigger the doorbell from Home Assistant** — make an intercom or reader ring on demand, optionally calling a specific intercom directory entry.
 - **🚪 Garage door / gate mode (UGT)** — expose a UGT door as a `cover` (garage door or gate) instead of a lock, switchable per door.
 
 Both dashboard cards are **bundled and auto-registered** (no manual Lovelace resource setup) and ship with built-in translations (`de`, `en`, `it`, `nl`, `zh-Hans`). Jump to [Access method controls](#access-method-controls-nfc-face-unlock-pin-qr-), [Guest passes](#guest-passes) and [Last Access](#last-access) for details.
@@ -258,6 +259,25 @@ max_logs: 5          # number of entries to show (default 5)
 </p>
 
 *Left: recent accesses across all doors, including doorbell rings and denied attempts. Right: an entry expanded to show time, person, direction, method, reader, door and result.*
+
+# Trigger the doorbell
+
+The `unifi_access.trigger_doorbell` action makes an intercom or reader ring, so Home Assistant can announce something at the door — for example when a delivery is expected, or to call a specific room from an automation.
+
+Fields:
+
+- `door_id` — ring the intercom/reader of this door (an intercom is preferred when a door has several readers)
+- `device_id` — alternatively, ring one specific device
+- `room_name` — optional intercom directory entry to call
+- `cancel` — stop a doorbell that is still ringing instead of starting one
+
+Requires UniFi Access **4.0.10 or later** and an API token with `edit:device` permission.
+
+```yaml
+action: unifi_access.trigger_doorbell
+data:
+  door_id: <your_door_id>
+```
 
 # Garage door / gate (UGT)
 

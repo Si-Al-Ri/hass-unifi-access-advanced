@@ -53,3 +53,23 @@ extend_guest_pass:
         datetime:
 
 list_guest_passes:
+
+trigger_doorbell:
+  fields:
+    door_id:
+      required: false
+      selector:
+        text:
+    device_id:
+      required: false
+      selector:
+        text:
+    room_name:
+      required: false
+      selector:
+        text:
+    cancel:
+      required: false
+      default: false
+      selector:
+        boolean:

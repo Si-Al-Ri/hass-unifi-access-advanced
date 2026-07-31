@@ -1,4 +1,4 @@
-"""Guest-pass actions for the Unifi Access integration."""
+"""Guest-pass and doorbell actions for the Unifi Access integration."""
 
 from __future__ import annotations
 
@@ -23,12 +23,14 @@ SERVICE_CREATE = "create_guest_pass"
 SERVICE_REVOKE = "revoke_guest_pass"
 SERVICE_EXTEND = "extend_guest_pass"
 SERVICE_LIST = "list_guest_passes"
+SERVICE_DOORBELL = "trigger_doorbell"
 
 _SERVICES = (
     SERVICE_CREATE,
     SERVICE_REVOKE,
     SERVICE_EXTEND,
     SERVICE_LIST,
+    SERVICE_DOORBELL,
 )
 
 _CREATE_SCHEMA = vol.Schema(
@@ -46,6 +48,14 @@ _CREATE_SCHEMA = vol.Schema(
     }
 )
 _REVOKE_SCHEMA = vol.Schema({vol.Required("visitor_id"): cv.string})
+_DOORBELL_SCHEMA = vol.Schema(
+    {
+        vol.Exclusive("door_id", "target"): cv.string,
+        vol.Exclusive("device_id", "target"): cv.string,
+        vol.Optional("room_name"): cv.string,
+        vol.Optional("cancel", default=False): cv.boolean,
+    }
+)
 _EXTEND_SCHEMA = vol.Schema(
     {
         vol.Required("visitor_id"): cv.string,
@@ -163,8 +173,48 @@ async def _handle_list(call: ServiceCall) -> ServiceResponse:
     return {"doors": doors, "passes": passes}
 
 
+async def _handle_doorbell(call: ServiceCall) -> None:
+    """Ring (or cancel) the doorbell on an intercom or reader."""
+    door_id = call.data.get("door_id")
+    device_id = call.data.get("device_id")
+    if not door_id and not device_id:
+        raise ServiceValidationError("Either door_id or device_id is required")
+
+    for entry in call.hass.config_entries.async_entries(DOMAIN):
+        data = getattr(entry, "runtime_data", None)
+        if data is None:
+            continue
+        hub = data.hub
+        target = device_id
+        if target is None:
+            if door_id not in hub.doors:
+                continue
+            readers = hub.doorbell_devices_for_door(door_id)
+            if not readers:
+                raise ServiceValidationError(
+                    f"No reader found for door '{door_id}' to ring the doorbell on"
+                )
+            target = readers[0].device_id
+        elif target not in hub.readers and target not in hub.devices:
+            continue
+
+        try:
+            await hub.async_trigger_doorbell(
+                target,
+                room_name=call.data.get("room_name"),
+                cancel=call.data["cancel"],
+            )
+        except RuntimeError as err:
+            raise HomeAssistantError(str(err)) from err
+        return
+
+    raise ServiceValidationError(
+        f"No UniFi Access device found for: {door_id or device_id}"
+    )
+
+
 def async_setup_services(hass: HomeAssistant) -> None:
-    """Register the guest-pass services (once for the whole integration)."""
+    """Register the guest-pass and doorbell services (once per integration)."""
     if hass.services.has_service(DOMAIN, SERVICE_CREATE):
         return
     hass.services.async_register(
@@ -193,10 +243,16 @@ def async_setup_services(hass: HomeAssistant) -> None:
         _handle_list,
         supports_response=SupportsResponse.ONLY,
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_DOORBELL,
+        _handle_doorbell,
+        schema=_DOORBELL_SCHEMA,
+    )
 
 
 def async_unload_services(hass: HomeAssistant) -> None:
-    """Remove the guest-pass services."""
+    """Remove the registered services."""
     for service in _SERVICES:
         if hass.services.has_service(DOMAIN, service):
             hass.services.async_remove(DOMAIN, service)

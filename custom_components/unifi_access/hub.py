@@ -700,6 +700,33 @@ class UnifiAccessHub:
             )
         return content
 
+    async def async_trigger_doorbell(
+        self,
+        device_id: str,
+        *,
+        room_name: str | None = None,
+        cancel: bool = False,
+    ) -> None:
+        """Ring the doorbell on an intercom or reader (UniFi Access 4.0.10+).
+
+        ``room_name`` targets a specific entry of an intercom's directory;
+        ``cancel`` stops a doorbell that is still ringing.
+        """
+        payload: dict[str, Any] = {"cancel": cancel}
+        if room_name:
+            payload["room_name"] = room_name
+        await self._developer_api(
+            "POST",
+            f"/api/v1/developer/devices/{device_id}/doorbell",
+            json_body=payload,
+        )
+
+    def doorbell_devices_for_door(self, door_id: str) -> list[ReaderState]:
+        """Return the readers of a door, intercoms first."""
+        readers = [r for r in self.readers.values() if r.door_id == door_id]
+        readers.sort(key=lambda r: "intercom" not in str(r.model or "").lower())
+        return readers
+
     # ------------------------------------------------------------------
     # Data fetching
     # ------------------------------------------------------------------
