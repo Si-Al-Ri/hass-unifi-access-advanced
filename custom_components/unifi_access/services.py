@@ -12,12 +12,13 @@ from homeassistant.core import (
     SupportsResponse,
 )
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.util import dt as dt_util
 import voluptuous as vol
 
 from .const import DOMAIN
 from .guest_pass import CREDENTIAL_TYPES, GuestPassManager
+from .hub import UnifiAccessHub
 
 SERVICE_CREATE = "create_guest_pass"
 SERVICE_REVOKE = "revoke_guest_pass"
@@ -50,8 +51,11 @@ _CREATE_SCHEMA = vol.Schema(
 _REVOKE_SCHEMA = vol.Schema({vol.Required("visitor_id"): cv.string})
 _DOORBELL_SCHEMA = vol.Schema(
     {
-        vol.Exclusive("door_id", "target"): cv.string,
-        vol.Exclusive("device_id", "target"): cv.string,
+        # Both accept a single value or a list. ``device_id`` doubles as the
+        # target selector, so it may carry Home Assistant device registry ids
+        # as well as UniFi device ids.
+        vol.Optional("door_id"): vol.All(cv.ensure_list, [cv.string]),
+        vol.Optional("device_id"): vol.All(cv.ensure_list, [cv.string]),
         vol.Optional("room_name"): cv.string,
         vol.Optional("cancel", default=False): cv.boolean,
     }
@@ -173,44 +177,66 @@ async def _handle_list(call: ServiceCall) -> ServiceResponse:
     return {"doors": doors, "passes": passes}
 
 
-async def _handle_doorbell(call: ServiceCall) -> None:
-    """Ring (or cancel) the doorbell on an intercom or reader."""
-    door_id = call.data.get("door_id")
-    device_id = call.data.get("device_id")
-    if not door_id and not device_id:
-        raise ServiceValidationError("Either door_id or device_id is required")
+def _unifi_ids_from_registry(hass: HomeAssistant, raw_id: str) -> list[str]:
+    """Translate a Home Assistant device registry id to UniFi identifiers.
 
-    for entry in call.hass.config_entries.async_entries(DOMAIN):
+    Returns the given id unchanged when it is not a registry id, so UniFi
+    door and device ids can be passed directly.
+    """
+    device = dr.async_get(hass).async_get(raw_id)
+    if device is None:
+        return [raw_id]
+    return [ident for domain, ident in device.identifiers if domain == DOMAIN]
+
+
+def _doorbell_targets(call: ServiceCall) -> list[str]:
+    """Return the unique UniFi door/device ids addressed by a service call."""
+    raw_targets = [*call.data.get("door_id", []), *call.data.get("device_id", [])]
+    if not raw_targets:
+        raise ServiceValidationError(
+            "Select a device, or provide a door_id or device_id"
+        )
+    targets: list[str] = []
+    for raw in raw_targets:
+        for resolved in _unifi_ids_from_registry(call.hass, raw):
+            if resolved not in targets:
+                targets.append(resolved)
+    return targets
+
+
+def _doorbell_device_for(
+    hass: HomeAssistant, target: str
+) -> tuple[UnifiAccessHub, str]:
+    """Return the hub and the device that should ring for a target id."""
+    for entry in hass.config_entries.async_entries(DOMAIN):
         data = getattr(entry, "runtime_data", None)
         if data is None:
             continue
         hub = data.hub
-        target = device_id
-        if target is None:
-            if door_id not in hub.doors:
-                continue
-            readers = hub.doorbell_devices_for_door(door_id)
+        if target in hub.doors:
+            readers = hub.doorbell_devices_for_door(target)
             if not readers:
                 raise ServiceValidationError(
-                    f"No reader found for door '{door_id}' to ring the doorbell on"
+                    f"No reader found for door '{target}' to ring the doorbell on"
                 )
-            target = readers[0].device_id
-        elif target not in hub.readers and target not in hub.devices:
-            continue
+            return hub, readers[0].device_id
+        if target in hub.readers or target in hub.devices:
+            return hub, target
+    raise ServiceValidationError(f"No UniFi Access door or device found for: {target}")
 
+
+async def _handle_doorbell(call: ServiceCall) -> None:
+    """Ring (or cancel) the doorbell on an intercom or reader."""
+    for target in _doorbell_targets(call):
+        hub, device_id = _doorbell_device_for(call.hass, target)
         try:
             await hub.async_trigger_doorbell(
-                target,
+                device_id,
                 room_name=call.data.get("room_name"),
                 cancel=call.data["cancel"],
             )
         except RuntimeError as err:
             raise HomeAssistantError(str(err)) from err
-        return
-
-    raise ServiceValidationError(
-        f"No UniFi Access device found for: {door_id or device_id}"
-    )
 
 
 def async_setup_services(hass: HomeAssistant) -> None:

@@ -264,20 +264,29 @@ max_logs: 5          # number of entries to show (default 5)
 
 The `unifi_access.trigger_doorbell` action makes an intercom or reader ring, so Home Assistant can announce something at the door — for example when a delivery is expected, or to call a specific room from an automation.
 
-Fields:
+The easiest way is to **pick the door or reader from the device list** in the UI (Developer tools → Actions, or the automation editor) — no IDs needed. Selecting several devices rings each of them.
 
-- `door_id` — ring the intercom/reader of this door (an intercom is preferred when a door has several readers)
-- `device_id` — alternatively, ring one specific device
+```yaml
+action: unifi_access.trigger_doorbell
+target:
+  device_id: <picked in the UI>
+```
+
+Options:
+
 - `room_name` — optional intercom directory entry to call
 - `cancel` — stop a doorbell that is still ringing instead of starting one
 
-Requires UniFi Access **4.0.10 or later** and an API token with `edit:device` permission.
+You can also address a door or device directly instead of using the picker:
 
 ```yaml
 action: unifi_access.trigger_doorbell
 data:
-  door_id: <your_door_id>
+  door_id: <UniFi door id>     # an intercom is preferred when a door has several readers
+  # device_id: <UniFi device id>
 ```
+
+Requires UniFi Access **4.0.10 or later** and an API token with `edit:device` permission.
 
 # Garage door / gate (UGT)
 
