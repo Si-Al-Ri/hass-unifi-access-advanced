@@ -55,15 +55,13 @@ extend_guest_pass:
 list_guest_passes:
 
 trigger_doorbell:
-  target:
-    device:
-      integration: unifi_access
   fields:
-    door_id:
+    device_id:
       required: false
       selector:
-        text:
-    device_id:
+        device:
+          integration: unifi_access
+    door_id:
       required: false
       selector:
         text:

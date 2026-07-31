@@ -8,5 +8,5 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/Si-Al-Ri/hass-unifi-access-advanced/issues",
   "requirements": ["py-unifi-access==1.2.0"],
-  "version": "3.2.1"
+  "version": "3.2.2"
 }

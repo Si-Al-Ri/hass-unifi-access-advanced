@@ -268,7 +268,7 @@ The easiest way is to **pick the door or reader from the device list** in the UI
 
 ```yaml
 action: unifi_access.trigger_doorbell
-target:
+data:
   device_id: <picked in the UI>
 ```
 
