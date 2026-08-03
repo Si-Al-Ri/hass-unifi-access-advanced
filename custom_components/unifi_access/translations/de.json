@@ -281,6 +281,16 @@
           "description": "Ein noch laufendes Klingeln beenden, statt eines zu starten."
         }
       }
+    },
+    "delete_guest_pass": {
+      "name": "Gastzugang löschen",
+      "description": "Löscht einen Gastzugang endgültig und entfernt ihn aus UniFi Access. Dies kann nicht rückgängig gemacht werden — um den Zugang nur zu sperren, „Gastzugang widerrufen“ verwenden.",
+      "fields": {
+        "visitor_id": {
+          "name": "Besucher-ID",
+          "description": "ID des endgültig zu löschenden Gastzugangs."
+        }
+      }
     }
   }
 }

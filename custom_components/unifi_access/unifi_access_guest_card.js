@@ -32,6 +32,9 @@ const I18N = {
     ct_inactive: "Zugangsdaten nur bei aktivem Pass verfügbar",
     act_extend: "Verlängern",
     act_revoke: "Widerrufen",
+    act_delete: "Löschen",
+    confirm_delete: "Gastzugang „{name}“ endgültig löschen? Dies kann nicht rückgängig gemacht werden.",
+    delete_failed: "Löschen fehlgeschlagen: ",
     until_prefix: "bis ",
     arrived_prefix: "Angekommen ",
     confirm_revoke: "Gastzugang „{name}“ widerrufen?",
@@ -66,6 +69,9 @@ const I18N = {
     ct_inactive: "Credentials are only available while the pass is active",
     act_extend: "Extend",
     act_revoke: "Revoke",
+    act_delete: "Delete",
+    confirm_delete: "Permanently delete guest pass “{name}”? This cannot be undone.",
+    delete_failed: "Delete failed: ",
     until_prefix: "until ",
     arrived_prefix: "Arrived ",
     confirm_revoke: "Revoke guest pass “{name}”?",
@@ -100,6 +106,9 @@ const I18N = {
     ct_inactive: "Le credenziali sono disponibili solo quando il pass è attivo",
     act_extend: "Estendi",
     act_revoke: "Revoca",
+    act_delete: "Elimina",
+    confirm_delete: "Eliminare definitivamente il pass ospite “{name}”? L'operazione non è reversibile.",
+    delete_failed: "Eliminazione non riuscita: ",
     until_prefix: "fino al ",
     arrived_prefix: "Arrivato il ",
     confirm_revoke: "Revocare il pass ospite “{name}”?",
@@ -134,6 +143,9 @@ const I18N = {
     ct_inactive: "Inloggegevens zijn alleen beschikbaar zolang de pas actief is",
     act_extend: "Verlengen",
     act_revoke: "Intrekken",
+    act_delete: "Verwijderen",
+    confirm_delete: "Gastpas “{name}” definitief verwijderen? Dit kan niet ongedaan worden gemaakt.",
+    delete_failed: "Verwijderen mislukt: ",
     until_prefix: "tot ",
     arrived_prefix: "Aangekomen ",
     confirm_revoke: "Gastpas “{name}” intrekken?",
@@ -168,6 +180,9 @@ const I18N = {
     ct_inactive: "仅在通行证有效期内可查看凭据",
     act_extend: "延长",
     act_revoke: "撤销",
+    act_delete: "删除",
+    confirm_delete: "确定要永久删除访客通行证“{name}”吗？此操作无法撤销。",
+    delete_failed: "删除失败：",
     until_prefix: "至 ",
     arrived_prefix: "已到达 ",
     confirm_revoke: "撤销访客通行证“{name}”？",
@@ -676,6 +691,23 @@ class UnifiAccessGuestCard extends HTMLElement {
     }
   }
 
+  async _delete(pass) {
+    if (this._busy) return;
+    if (!confirm(this._t("confirm_delete", { name: pass.name }))) return;
+    this._busy = true;
+    try {
+      await this._call("delete_guest_pass", { visitor_id: pass.visitor_id });
+      this._expanded.delete(pass.visitor_id);
+      await this._loadData();
+    } catch (err) {
+      alert(
+        this._t("delete_failed") + (err && err.message ? err.message : err),
+      );
+    } finally {
+      this._busy = false;
+    }
+  }
+
   // ---- list rendering ---------------------------------------------------
 
   _renderList() {
@@ -763,8 +795,13 @@ class UnifiAccessGuestCard extends HTMLElement {
       rev.className = "lnk danger";
       rev.textContent = this._t("act_revoke");
       rev.addEventListener("click", () => this._revoke(p));
+      const del = document.createElement("button");
+      del.className = "lnk danger";
+      del.textContent = this._t("act_delete");
+      del.addEventListener("click", () => this._delete(p));
       act.appendChild(ext);
       act.appendChild(rev);
+      act.appendChild(del);
       det.appendChild(act);
       wrap.appendChild(det);
     }

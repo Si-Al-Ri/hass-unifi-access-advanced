@@ -202,12 +202,13 @@ Create time-limited visitor passes (PIN and/or QR) from Home Assistant without s
 
 - `create_guest_pass` — `name`, `door_id` (one id or a list), `valid_from`, `valid_until`, `credentials` (`pin`, `qr` or both). Returns the generated **PIN in plaintext** and/or the **QR code image**.
 - `extend_guest_pass` — `visitor_id`, `valid_from`, `valid_until` (reactivate / prolong an existing pass, keeping its PIN/QR).
-- `revoke_guest_pass` — `visitor_id`.
+- `revoke_guest_pass` — `visitor_id` (disables the pass; it stays listed as revoked).
+- `delete_guest_pass` — `visitor_id` (**permanently** removes the pass from UniFi Access and the card — cannot be undone).
 - `list_guest_passes` — returns the available doors and all passes.
 
 ### Bundled Lovelace card
 
-Add the card `custom:unifi-access-guest-card` to a dashboard to create, view, extend and revoke passes from a UI. It shows the **PIN and QR code while a pass is active**, offers a multi-door checklist, and updates itself when a guest arrives.
+Add the card `custom:unifi-access-guest-card` to a dashboard to create, view, extend, revoke and delete passes from a UI. It shows the **PIN and QR code while a pass is active**, offers a multi-door checklist, and updates itself when a guest arrives.
 
 ```yaml
 type: custom:unifi-access-guest-card
@@ -222,7 +223,9 @@ type: custom:unifi-access-guest-card
 
 <img src="screenshots/Guest-Extend_Revoke-Function.png" alt="Extend and revoke actions on a pass" width="440">
 
-*Tap a pass to extend or revoke it; credentials are hidden once a pass is no longer active.*
+*Tap a pass to extend, revoke or delete it; credentials are hidden once a pass is no longer active.*
+
+**Revoke vs. delete:** revoking disables the PIN/QR immediately but keeps the pass in the list (shown as revoked), so you can reactivate it later with *Extend*. Deleting removes it from UniFi Access for good — useful for clearing out old passes that have piled up.
 
 Requirements: API token with `edit:visitor` + `view:credential` permissions; QR passes need UniFi Access **3.3.10 or later**.
 

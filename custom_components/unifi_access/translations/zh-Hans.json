@@ -180,6 +180,16 @@
           "description": "停止仍在响铃的门铃，而不是开始响铃。"
         }
       }
+    },
+    "delete_guest_pass": {
+      "name": "删除访客通行证",
+      "description": "从 UniFi Access 中永久删除访客通行证。此操作无法撤销——如只想停用访问权限，请使用“撤销访客通行证”。",
+      "fields": {
+        "visitor_id": {
+          "name": "访客 ID",
+          "description": "要永久删除的访客通行证 ID。"
+        }
+      }
     }
   }
 }

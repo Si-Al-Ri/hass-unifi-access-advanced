@@ -559,7 +559,12 @@ class UnifiAccessHub:
     # ------------------------------------------------------------------
 
     async def _developer_api(
-        self, method: str, path: str, *, json_body: dict | None = None
+        self,
+        method: str,
+        path: str,
+        *,
+        json_body: dict | None = None,
+        params: dict[str, str] | None = None,
     ) -> dict:
         """Call the UniFi Access developer API and return the parsed JSON.
 
@@ -576,6 +581,7 @@ class UnifiAccessHub:
                 self._device_api_url(path),
                 headers=headers,
                 json=json_body,
+                params=params,
                 ssl=self._ssl_context,
             ) as resp:
                 data = await resp.json()
@@ -664,6 +670,14 @@ class UnifiAccessHub:
     async def async_cancel_visitor(self, visitor_id: str) -> None:
         """Cancel a visitor (soft delete — UniFi sets the status to CANCELLED)."""
         await self._developer_api("DELETE", f"/api/v1/developer/visitors/{visitor_id}")
+
+    async def async_delete_visitor(self, visitor_id: str) -> None:
+        """Permanently remove a visitor from UniFi Access."""
+        await self._developer_api(
+            "DELETE",
+            f"/api/v1/developer/visitors/{visitor_id}",
+            params={"is_force": "true"},
+        )
 
     async def async_get_visitor(self, visitor_id: str) -> dict | None:
         """Fetch a visitor. Returns None if it no longer exists in UniFi."""

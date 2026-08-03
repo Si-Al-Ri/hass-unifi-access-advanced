@@ -281,6 +281,16 @@
           "description": "Stop a doorbell that is still ringing instead of starting one."
         }
       }
+    },
+    "delete_guest_pass": {
+      "name": "Delete guest pass",
+      "description": "Permanently deletes a guest pass and removes it from UniFi Access. This cannot be undone — use 'Revoke guest pass' to only disable access.",
+      "fields": {
+        "visitor_id": {
+          "name": "Visitor ID",
+          "description": "ID of the guest pass to delete permanently."
+        }
+      }
     }
   }
 }

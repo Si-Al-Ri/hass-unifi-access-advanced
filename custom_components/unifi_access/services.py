@@ -24,6 +24,7 @@ SERVICE_CREATE = "create_guest_pass"
 SERVICE_REVOKE = "revoke_guest_pass"
 SERVICE_EXTEND = "extend_guest_pass"
 SERVICE_LIST = "list_guest_passes"
+SERVICE_DELETE = "delete_guest_pass"
 SERVICE_DOORBELL = "trigger_doorbell"
 
 _SERVICES = (
@@ -31,6 +32,7 @@ _SERVICES = (
     SERVICE_REVOKE,
     SERVICE_EXTEND,
     SERVICE_LIST,
+    SERVICE_DELETE,
     SERVICE_DOORBELL,
 )
 
@@ -49,6 +51,7 @@ _CREATE_SCHEMA = vol.Schema(
     }
 )
 _REVOKE_SCHEMA = vol.Schema({vol.Required("visitor_id"): cv.string})
+_DELETE_SCHEMA = vol.Schema({vol.Required("visitor_id"): cv.string})
 _DOORBELL_SCHEMA = vol.Schema(
     {
         # Both accept a single value or a list. ``device_id`` doubles as the
@@ -143,6 +146,15 @@ async def _handle_revoke(call: ServiceCall) -> None:
     manager = _manager_for_visitor(call.hass, call.data["visitor_id"])
     try:
         await manager.async_revoke(call.data["visitor_id"])
+    except RuntimeError as err:
+        raise HomeAssistantError(str(err)) from err
+
+
+async def _handle_delete(call: ServiceCall) -> None:
+    """Handle the delete_guest_pass service."""
+    manager = _manager_for_visitor(call.hass, call.data["visitor_id"])
+    try:
+        await manager.async_delete(call.data["visitor_id"])
     except RuntimeError as err:
         raise HomeAssistantError(str(err)) from err
 
@@ -255,6 +267,12 @@ def async_setup_services(hass: HomeAssistant) -> None:
         SERVICE_REVOKE,
         _handle_revoke,
         schema=_REVOKE_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_DELETE,
+        _handle_delete,
+        schema=_DELETE_SCHEMA,
     )
     hass.services.async_register(
         DOMAIN,

@@ -180,6 +180,16 @@
           "description": "Stopt een nog rinkelende deurbel in plaats van er een te starten."
         }
       }
+    },
+    "delete_guest_pass": {
+      "name": "Gastpas verwijderen",
+      "description": "Verwijdert een gastpas definitief uit UniFi Access. Dit kan niet ongedaan worden gemaakt — gebruik 'Gastpas intrekken' om alleen de toegang te blokkeren.",
+      "fields": {
+        "visitor_id": {
+          "name": "Bezoekers-ID",
+          "description": "ID van de definitief te verwijderen gastpas."
+        }
+      }
     }
   }
 }

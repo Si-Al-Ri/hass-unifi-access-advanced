@@ -37,6 +37,13 @@ revoke_guest_pass:
       selector:
         text:
 
+delete_guest_pass:
+  fields:
+    visitor_id:
+      required: true
+      selector:
+        text:
+
 extend_guest_pass:
   fields:
     visitor_id:

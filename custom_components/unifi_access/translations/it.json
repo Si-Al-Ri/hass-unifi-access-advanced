@@ -180,6 +180,16 @@
           "description": "Interrompe un campanello ancora in corso invece di avviarne uno."
         }
       }
+    },
+    "delete_guest_pass": {
+      "name": "Elimina pass ospite",
+      "description": "Elimina definitivamente un pass ospite e lo rimuove da UniFi Access. L'operazione non è reversibile — per disattivare solo l'accesso usare «Revoca pass ospite».",
+      "fields": {
+        "visitor_id": {
+          "name": "ID visitatore",
+          "description": "ID del pass ospite da eliminare definitivamente."
+        }
+      }
     }
   }
 }

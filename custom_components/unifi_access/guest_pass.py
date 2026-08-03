@@ -308,6 +308,19 @@ class GuestPassManager:
                 return
             raise
 
+    async def async_delete(self, visitor_id: str) -> None:
+        """Permanently delete a guest pass and drop it from the registry.
+
+        A pass that no longer exists in UniFi is still removed locally.
+        """
+        try:
+            await self._hub.async_delete_visitor(visitor_id)
+        except RuntimeError as err:
+            if "not found" not in str(err).lower():
+                raise
+        if self._passes.pop(visitor_id, None) is not None:
+            await self._async_save()
+
     async def async_list(self) -> list[dict[str, Any]]:
         """Return all passes, reconciled against UniFi.
 
