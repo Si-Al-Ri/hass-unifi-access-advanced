@@ -5,7 +5,9 @@
  *
  * Shows the most recent access events (who / direction / method / reader /
  * result / when), merged across all doors and sorted newest first. Fed by the
- * integration's last-access sensors and their `events` history.
+ * integration's last-access sensors and their `events` history. Expanding an
+ * event shows the snapshot the reader captured, if the door has a camera;
+ * clicking the thumbnail opens it full size.
  *
  * The UI follows Home Assistant's language (hass.locale.language) — de, en,
  * it, nl and zh-Hans are bundled; unknown languages fall back to English.
@@ -42,6 +44,7 @@ const I18N = {
     d_reader: "Reader",
     d_door: "Tür",
     d_result: "Ergebnis",
+    d_picture: "Bild",
     res_granted: "Gewährt",
     res_denied: "Abgewiesen",
     ago_now: "gerade eben",
@@ -72,6 +75,7 @@ const I18N = {
     d_reader: "Reader",
     d_door: "Door",
     d_result: "Result",
+    d_picture: "Picture",
     res_granted: "Granted",
     res_denied: "Denied",
     ago_now: "just now",
@@ -102,6 +106,7 @@ const I18N = {
     d_reader: "Lettore",
     d_door: "Porta",
     d_result: "Esito",
+    d_picture: "Immagine",
     res_granted: "Consentito",
     res_denied: "Negato",
     ago_now: "proprio ora",
@@ -132,6 +137,7 @@ const I18N = {
     d_reader: "Lezer",
     d_door: "Deur",
     d_result: "Resultaat",
+    d_picture: "Afbeelding",
     res_granted: "Toegestaan",
     res_denied: "Geweigerd",
     ago_now: "zojuist",
@@ -162,6 +168,7 @@ const I18N = {
     d_reader: "读卡器",
     d_door: "门",
     d_result: "结果",
+    d_picture: "图片",
     res_granted: "已允许",
     res_denied: "已拒绝",
     ago_now: "刚刚",
@@ -204,7 +211,16 @@ const ICON = {
   reader: "M4 2h16a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm2 4v4h12V6Zm0 8h6v4H6Z",
   door: "M5 3h11a2 2 0 0 1 2 2v16h3v2H3v-2h2Zm9 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z",
   result: "M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4Z",
+  picture:
+    "M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2ZM8.5 13.5l2.5 3 3.5-4.5 4.5 6H5Z",
 };
+
+// Endpoint serving the stored capture images. Requests are authenticated with
+// a signed path obtained from Home Assistant, valid for SIGN_TTL seconds and
+// renewed SIGN_RENEW seconds before it runs out.
+const CAPTURE_URL = "/api/unifi_access/capture/";
+const SIGN_TTL = 3600;
+const SIGN_RENEW = 300;
 
 // Trailing localized sensor-name fragments stripped to derive the door name.
 const SENSOR_NAME_RE =
@@ -223,6 +239,8 @@ class UnifiAccessLastAccessCard extends HTMLElement {
     this._live = {};
     this._sub = false;
     this._unsub = null;
+    // capture id → { url, until }, so re-rendering does not re-sign.
+    this._urls = {};
   }
 
   setConfig(config) {
@@ -251,6 +269,7 @@ class UnifiAccessLastAccessCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this._closeLightbox();
     if (this._tick) clearInterval(this._tick);
     this._tick = null;
     if (typeof this._unsub === "function") this._unsub();
@@ -398,6 +417,7 @@ class UnifiAccessLastAccessCard extends HTMLElement {
             reader: e.reader || "",
             door: e.door_name || door,
             kind: e.kind || "",
+            capture: e.capture_id || "",
           });
         });
       } else if (
@@ -415,6 +435,7 @@ class UnifiAccessLastAccessCard extends HTMLElement {
           reader: a.reader || "",
           door,
           kind: a.kind || "",
+          capture: a.capture_id || "",
         });
       }
     });
@@ -483,6 +504,23 @@ class UnifiAccessLastAccessCard extends HTMLElement {
           text-align:right; word-break:break-word; }
         .dv.ok { color:#66bb6a; }
         .dv.no { color:#ef5350; }
+        .thumb {
+          width:72px; height:54px; object-fit:cover; border-radius:6px;
+          display:block; margin-left:auto; cursor:zoom-in;
+          background: var(--divider-color);
+        }
+
+        /* ---- full-size image overlay ---- */
+        .lightbox {
+          display:none; position:fixed; inset:0; z-index:9;
+          background:rgba(0,0,0,.88); align-items:center; justify-content:center;
+          cursor:zoom-out; padding:16px;
+        }
+        .lightbox.open { display:flex; }
+        .lightbox img {
+          max-width:96vw; max-height:92vh; border-radius:10px;
+          box-shadow:0 8px 40px rgba(0,0,0,.6);
+        }
       </style>
       <ha-card>
         <div class="head">
@@ -491,9 +529,12 @@ class UnifiAccessLastAccessCard extends HTMLElement {
         </div>
         <div class="section"><div id="list" class="muted"></div></div>
       </ha-card>
+      <div class="lightbox" id="lightbox"><img alt=""></div>
     `;
     this._list = this.shadowRoot.getElementById("list");
     this._headText = this.shadowRoot.getElementById("head-text");
+    this._lightbox = this.shadowRoot.getElementById("lightbox");
+    this._lightbox.addEventListener("click", () => this._closeLightbox());
   }
 
   // ---- render -----------------------------------------------------------
@@ -602,9 +643,71 @@ class UnifiAccessLastAccessCard extends HTMLElement {
           </div>`,
         )
         .join("");
+      this._appendPicture(det, e.capture);
       wrap.appendChild(det);
     }
     return wrap;
+  }
+
+  // ---- capture images ---------------------------------------------------
+
+  // Append a "picture" row carrying the event's snapshot. The row removes
+  // itself when no image is stored for the event — the controller publishes
+  // the snapshot a moment after the event, and doors without a camera never
+  // publish one at all.
+  _appendPicture(detail, captureId) {
+    if (!captureId) return;
+    const row = document.createElement("div");
+    row.className = "drow";
+    row.innerHTML = `
+      <svg viewBox="0 0 24 24"><path d="${ICON.picture}"/></svg>
+      <span class="dk">${this._esc(this._t("d_picture"))}</span>
+      <span class="dv"><img class="thumb" alt=""></span>`;
+    const img = row.querySelector("img");
+    img.addEventListener("error", () => row.remove());
+    img.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      this._openLightbox(img.src);
+    });
+    detail.appendChild(row);
+    this._imageUrl(captureId).then((url) => {
+      if (url) img.src = url;
+      else row.remove();
+    });
+  }
+
+  // Home Assistant signs the endpoint path so the browser can load the image
+  // in a plain <img> tag, which cannot send an authorization header. The
+  // signature is re-issued shortly before it expires, so a dashboard left
+  // open for a long time keeps showing images.
+  async _imageUrl(captureId) {
+    const cached = this._urls[captureId];
+    if (cached && cached.until > Date.now()) return cached.url;
+    if (!this._hass || !this._hass.callWS) return "";
+    try {
+      const res = await this._hass.callWS({
+        type: "auth/sign_path",
+        path: CAPTURE_URL + encodeURIComponent(captureId),
+        expires: SIGN_TTL,
+      });
+      this._urls[captureId] = {
+        url: res.path,
+        until: Date.now() + (SIGN_TTL - SIGN_RENEW) * 1000,
+      };
+      return res.path;
+    } catch (err) {
+      return "";
+    }
+  }
+
+  _openLightbox(src) {
+    if (!this._lightbox || !src) return;
+    this._lightbox.querySelector("img").src = src;
+    this._lightbox.classList.add("open");
+  }
+
+  _closeLightbox() {
+    if (this._lightbox) this._lightbox.classList.remove("open");
   }
 
   _renderDetail(e, dir) {
@@ -645,6 +748,7 @@ class UnifiAccessLastAccessCard extends HTMLElement {
         </div>`,
       )
       .join("");
+    this._appendPicture(det, e.capture);
     return det;
   }
 

@@ -1,6 +1,6 @@
 # Unifi Access Custom Integration for Home Assistant
 
-> This is a fork of [imhotep/hass-unifi-access](https://github.com/imhotep/hass-unifi-access) (Apache License 2.0) with additional features, including per-reader access-method controls, time-limited guest passes with a bundled Lovelace card, and a "last access" sensor and card.
+> This is a fork of [imhotep/hass-unifi-access](https://github.com/imhotep/hass-unifi-access) (Apache License 2.0) with additional features, including per-reader access-method controls, time-limited guest passes with a bundled Lovelace card, and a "last access" sensor and card with camera snapshots.
 
 - This is a basic integration of [Unifi Access](https://ui.com/door-access) in [Home Assistant](https://homeassistant.io). 
 - If you have Unifi Access set up with UID this will likely *NOT* work although some people have reported success using the free version of UID. 
@@ -14,6 +14,7 @@ This is the **advanced** edition of the integration. In addition to doors, locks
 - **🎚️ Face Anti-Spoofing** and **PIN Keypad Layout** selects — tune the Face Unlock security level and switch the PIN pad between standard and randomized layout.
 - **🎟️ Time-limited guest passes** — create, extend and revoke visitor **PIN / QR** passes (single or multi-door) from Home Assistant, with a **bundled Lovelace card** that shows the PIN and QR code while the pass is active.
 - **🕓 "Last Access" sensor + Lovelace card** — see who entered/left which door, with which method, and when, merged across all doors.
+- **📸 Camera snapshots in the access log** — readers and intercoms with a camera capture the moment of the event; the picture appears right in the expanded entry, for granted **and denied** accesses as well as doorbell rings. Kept as a self-limiting ring buffer, served behind Home Assistant's authentication, nothing to configure.
 - **🔔 Trigger the doorbell from Home Assistant** — make an intercom or reader ring on demand, optionally calling a specific intercom directory entry.
 - **🚪 Garage door / gate mode (UGT)** — expose a UGT door as a `cover` (garage door or gate) instead of a lock, switchable per door.
 
@@ -38,7 +39,7 @@ This HACS integration exposes doors as lock entities for convenience. You can un
 The core integration supports auto-discovery. This HACS integration does not.
 The core integration may require additional Home Assistant helpers/templates or automations for some workflows that this HACS integration exposes more directly.
 This HACS integration exposes **per-reader access-method switches** (Face Unlock, NFC, PIN, QR, mobile, hand wave, touch pass) and Face-Anti-Spoofing / PIN-Keypad-Layout selects that are not available in core.
-This HACS integration adds **time-limited guest passes** and a **"Last Access"** sensor, each with a bundled Lovelace dashboard card.
+This HACS integration adds **time-limited guest passes** and a **"Last Access"** sensor, each with a bundled Lovelace dashboard card. The access card also shows the **camera snapshot** each event was captured with.
 
 # Supported hardware
 - Unifi Access Hub (UAH) :white_check_mark:
@@ -262,6 +263,20 @@ max_logs: 5          # number of entries to show (default 5)
 </p>
 
 *Left: recent accesses across all doors, including doorbell rings and denied attempts. Right: an entry expanded to show time, person, direction, method, reader, door and result.*
+
+### Camera snapshots
+
+Readers and intercoms with a camera capture a snapshot at the moment of the event. Expanding an entry shows it as a **Picture** row; clicking the thumbnail opens it full size. This works for granted accesses, **denied attempts** and doorbell rings alike — so a wrong PIN at 3 a.m. comes with a face.
+
+<p>
+  <img src="screenshots/Last-Access-Detail-With-Picture.png" alt="Expanded access entry showing the captured snapshot" width="440">
+</p>
+
+There is **nothing to configure**. Snapshots are kept as a ring buffer of the 25 most recent events **per door** — the same bound as the card's history, so every entry the card can display still has its image at any `max_logs` value, and older images are deleted automatically. They survive a Home Assistant restart and are removed with the integration.
+
+Images are stored as files under `.storage/`, never in state attributes, so the recorder database stays small. They are served through an authenticated endpoint — unlike `config/www/`, they are **not** reachable without a Home Assistant login.
+
+> Doors whose reader has no camera simply show no Picture row.
 
 # Trigger the doorbell
 

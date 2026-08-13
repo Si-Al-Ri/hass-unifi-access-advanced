@@ -87,10 +87,20 @@ class TemporaryLockRuleEndTimeSensorEntity(UnifiAccessDoorEntity, SensorEntity):
 
 # Number of recent access events kept in the sensor's "events" attribute.
 # The Lovelace card merges these across doors, so this is the upper bound for
-# the card's configurable max_logs.
+# the card's configurable max_logs. The capture store keeps the same number of
+# images per door, so every event listed here can still show its snapshot.
 _MAX_HISTORY = 25
 
-_EVENT_KEYS = ("actor", "method", "direction", "result", "door_name", "reader", "kind")
+_EVENT_KEYS = (
+    "actor",
+    "method",
+    "direction",
+    "result",
+    "door_name",
+    "reader",
+    "kind",
+    "capture_id",
+)
 
 
 class UnifiAccessLastAccessSensor(
@@ -178,6 +188,7 @@ class UnifiAccessLastAccessSensor(
             "door_name": attributes.get("door_name", self.door.name),
             "reader": attributes.get("reader", ""),
             "kind": kind,
+            "capture_id": attributes.get("capture_id", ""),
         }
         if not kind:
             self._timestamp = now

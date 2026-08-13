@@ -16,6 +16,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import ssl as ssl_util
 from unifi_access_api import ApiConnectionError, EmergencyStatus, UnifiAccessApiClient
 
+from .capture import async_remove_captures, async_setup_captures
 from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
 from .coordinator import UnifiAccessCoordinator
 from .frontend import async_register_card
@@ -132,6 +133,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: UnifiAccessConfigEntry) 
         EmergencyStatus(evacuation=hub.evacuation, lockdown=hub.lockdown)
     )
 
+    # Store and serve the snapshot images shown in the last-access card
+    # (non-fatal if it fails — access events are recorded without images).
+    try:
+        hub.captures = await async_setup_captures(hass)
+    except Exception as err:
+        _LOGGER.warning("Capture image storage unavailable: %s", err)
+
     guest_passes = GuestPassManager(hass, hub, entry.entry_id)
     await guest_passes.async_load()
     # Hook into per-door last_access events so the manager can stamp
@@ -178,6 +186,12 @@ async def async_unload_entry(
             async_unload_services(hass)
 
     return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: UnifiAccessConfigEntry) -> None:
+    """Delete the stored capture images once the last entry is removed."""
+    if not hass.config_entries.async_entries(DOMAIN):
+        await async_remove_captures(hass)
 
 
 async def async_remove_config_entry_device(

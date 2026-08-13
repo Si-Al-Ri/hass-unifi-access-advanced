@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 import logging
 import ssl
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 import unicodedata
 
 import aiohttp
@@ -54,6 +54,9 @@ from .const import (
     DOORBELL_START_EVENT,
     DOORBELL_STOP_EVENT,
 )
+
+if TYPE_CHECKING:
+    from .capture import CaptureStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -154,6 +157,16 @@ _HUB_CAPABILITIES = frozenset({"is_hub", "identity_is_hub"})
 # Time window (seconds) for collapsing the same physical access arriving via
 # both insights.add and logs.add.
 _ACCESS_DEDUP_WINDOW = 3.0
+
+# Time window (seconds) in which a door thumbnail published after an access or
+# doorbell ring is stored as that event's capture image.
+_CAPTURE_WINDOW = 15.0
+
+# Time window (seconds) for the reverse order: a thumbnail that arrived just
+# before its event is claimed retroactively. The controller publishes the
+# snapshot and the access record on independent paths, so a denied access
+# often reaches the integration after its own snapshot.
+_CAPTURE_BACKFILL_WINDOW = 10.0
 
 
 @dataclass
@@ -271,6 +284,17 @@ class UnifiAccessHub:
         # ``async_fetch_devices``. An extra resolution class for WS access
         # events that report a device/hub MAC instead of the door UUID.
         self._device_door_map: dict[str, str] = {}
+
+        # Capture images: door id → (capture id, monotonic ts) awaiting the
+        # thumbnail that the controller publishes shortly after the event.
+        self._pending_capture: dict[str, tuple[str, float]] = {}
+
+        # Reverse direction: door id → (image, monotonic ts) of the most recent
+        # thumbnail that no event had claimed yet.
+        self._recent_thumbnail: dict[str, tuple[bytes, float]] = {}
+
+        # Set by __init__.py — shared store holding the capture images.
+        self.captures: CaptureStore | None = None
 
         # Set by __init__.py after coordinator creation to push WS updates.
         self.on_doors_updated: Callable[[], None] | None = None
@@ -893,14 +917,11 @@ class UnifiAccessHub:
 
         # Handle thumbnail
         if update.data.thumbnail is not None:
-            thumb_url = update.data.thumbnail.url
-            try:
-                state.thumbnail = await self.client.get_thumbnail(thumb_url)
-                state.thumbnail_last_updated = datetime.fromtimestamp(
-                    update.data.thumbnail.door_thumbnail_last_update, tz=UTC
-                )
-            except (ApiError, TimeoutError):
-                _LOGGER.debug("Failed to fetch thumbnail for door %s", door_id)
+            await self._update_thumbnail(
+                state,
+                update.data.thumbnail.url,
+                update.data.thumbnail.door_thumbnail_last_update,
+            )
 
         _LOGGER.info(
             "Location update V2 door %s (%s): locked=%s dps=%s rule=%s",
@@ -940,7 +961,7 @@ class UnifiAccessHub:
         self._notify_doors_updated()
         state.trigger_event("doorbell_press", event_attributes)
         # Emit a "last_access" event of kind "doorbell" for the ring.
-        self._emit_last_access(
+        await self._emit_last_access(
             state,
             actor="",
             method="",
@@ -1116,7 +1137,7 @@ class UnifiAccessHub:
         dedup[door_id] = (now, signature)
         return False
 
-    def _emit_last_access(
+    async def _emit_last_access(
         self,
         state: DoorState,
         *,
@@ -1149,8 +1170,70 @@ class UnifiAccessHub:
                 "result": result,
                 "reader": reader,
                 "kind": kind,
+                "capture_id": await self._capture_for_event(state.id),
             },
         )
+
+    async def _capture_for_event(self, door_id: str) -> str:
+        """Return the capture id identifying an event's snapshot image.
+
+        The controller publishes the snapshot and the access record on
+        independent paths, so either may arrive first. A snapshot that landed
+        moments ago is stored right away; otherwise the id is held open for the
+        snapshot still to come. Returns an empty string when no capture store
+        is configured, in which case no image is recorded.
+        """
+        if self.captures is None:
+            return ""
+
+        capture_id = self.captures.new_id(door_id)
+        recent = self._recent_thumbnail.pop(door_id, None)
+        if recent is not None and time.monotonic() - recent[1] <= (
+            _CAPTURE_BACKFILL_WINDOW
+        ):
+            _LOGGER.debug("Claiming preceding snapshot for door %s", door_id)
+            await self.captures.async_save(capture_id, recent[0])
+        else:
+            self._pending_capture[door_id] = (capture_id, time.monotonic())
+        return capture_id
+
+    async def _update_thumbnail(
+        self, state: DoorState, url: str, last_update: int | None
+    ) -> bool:
+        """Fetch a door thumbnail and keep it as an event's capture image.
+
+        A thumbnail claimed by a preceding event is stored under that event's
+        id; an unclaimed one is held briefly so an event arriving right after
+        it can still claim it. Returns whether the thumbnail was fetched.
+        """
+        try:
+            image = await self.client.get_thumbnail(url)
+        except (ApiError, TimeoutError, ValueError):
+            _LOGGER.debug("Failed to fetch thumbnail for door %s", state.id)
+            return False
+
+        state.thumbnail = image
+        if last_update is not None:
+            try:
+                state.thumbnail_last_updated = datetime.fromtimestamp(
+                    last_update, tz=UTC
+                )
+            except (OSError, OverflowError, ValueError):
+                _LOGGER.debug(
+                    "Unusable thumbnail timestamp %s for door %s",
+                    last_update,
+                    state.id,
+                )
+
+        if self.captures is None:
+            return True
+
+        pending = self._pending_capture.pop(state.id, None)
+        if pending is not None and time.monotonic() - pending[1] <= _CAPTURE_WINDOW:
+            await self.captures.async_save(pending[0], image)
+        else:
+            self._recent_thumbnail[state.id] = (image, time.monotonic())
+        return True
 
     async def _handle_logs_add(self, msg: WebsocketMessage) -> None:
         """Handle access log messages.
@@ -1236,7 +1319,7 @@ class UnifiAccessHub:
                 or getattr(reader_target, "display_name", None)
                 or getattr(reader_target, "type", None),
             )
-        self._emit_last_access(
+        await self._emit_last_access(
             state,
             actor=source.actor.display_name,
             method=source.authentication.credential_provider,
@@ -1265,7 +1348,7 @@ class UnifiAccessHub:
         self._notify_doors_updated()
         state.trigger_event("doorbell_press", event_attributes)
         # Emit a "last_access" event of kind "doorbell" for the ring.
-        self._emit_last_access(
+        await self._emit_last_access(
             state,
             actor="",
             method="",
@@ -1371,7 +1454,7 @@ class UnifiAccessHub:
                     reader, "type", None
                 )
             reader_name = self._resolve_reader_name(reader_id, reader_fallback)
-        self._emit_last_access(
+        await self._emit_last_access(
             state,
             actor=update.data.metadata.actor.display_name,
             method=method,
@@ -1405,14 +1488,11 @@ class UnifiAccessHub:
 
         # Handle thumbnail
         if update.data.thumbnail is not None:
-            thumb_url = update.data.thumbnail.url
-            try:
-                state.thumbnail = await self.client.get_thumbnail(thumb_url)
-                state.thumbnail_last_updated = datetime.fromtimestamp(
-                    update.data.thumbnail.door_thumbnail_last_update, tz=UTC
-                )
-            except (ApiError, TimeoutError):
-                _LOGGER.debug("Failed to fetch thumbnail for door %s", door_id)
+            await self._update_thumbnail(
+                state,
+                update.data.thumbnail.url,
+                update.data.thumbnail.door_thumbnail_last_update,
+            )
 
         _LOGGER.info(
             "V2 location update door %s (%s): locked=%s dps=%s rule=%s",
@@ -1486,14 +1566,10 @@ class UnifiAccessHub:
             thumb_ts = extras.get("door_thumbnail_last_update")
             if thumb_url and isinstance(thumb_url, str):
                 try:
-                    state.thumbnail = await self.client.get_thumbnail(thumb_url)
-                    if thumb_ts is not None:
-                        state.thumbnail_last_updated = datetime.fromtimestamp(
-                            int(thumb_ts), tz=UTC
-                        )
-                    updated = True
-                except (ApiError, TimeoutError, ValueError):
-                    _LOGGER.debug("Failed to fetch thumbnail for door %s", door_id)
+                    stamp = None if thumb_ts is None else int(thumb_ts)
+                except (TypeError, ValueError):
+                    stamp = None
+                updated = await self._update_thumbnail(state, thumb_url, stamp)
 
         _LOGGER.debug(
             "Legacy location update door %s (%s)",
