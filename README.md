@@ -373,7 +373,15 @@ The Unifi Access API does *NOT* support door locking at the moment. You probably
 5. If you installed via HACS you can also uninstall the repository from HACS afterwards
 
 # Wishlist
-- door code via service
+
+**Full user management.** Time-limited visitor credentials already exist (see [Guest passes](#guest-passes)); what is still missing is managing the regular users of your system from Home Assistant:
+
+- **Permanent PIN codes** for a user — set and remove them without opening the UniFi Access app.
+  *Note: the API never returns an existing PIN, only a hashed token, so this can only ever offer "set a new PIN", never "show the current one".*
+- **Create and delete users**, and activate or deactivate them (e.g. suspend a user's access while they are away).
+- **Enrol NFC cards** — start an enrolment session from Home Assistant, hold the card against a reader, and have the new card assigned to the user.
+- **Manage a user's access policies** — which doors they may open, and when.
+- A **combined access card** with tabs for users and guests, replacing today's guest-only card.
 
 # Troubleshooting
 
