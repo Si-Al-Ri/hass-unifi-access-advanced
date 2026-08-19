@@ -130,7 +130,8 @@
           "keep_unlock": "Aufgeschlossen halten",
           "lock_early": "Frühzeitig abschließen",
           "lock_now": "Jetzt abschließen",
-          "reset": "Regel zurücksetzen"
+          "reset": "Regel zurücksetzen",
+          "schedule": "Zeitplan-Regel"
         }
       },
       "entity_type": {

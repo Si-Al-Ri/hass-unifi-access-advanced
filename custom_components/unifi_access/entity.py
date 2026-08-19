@@ -75,7 +75,9 @@ def manage_door_entities(
                 if entity.entity_id:
                     entity_registry.async_remove(entity.entity_id)
                 else:
-                    entity.async_remove()
+                    # Not registered yet — removal is a coroutine and has to
+                    # be scheduled rather than called from this callback.
+                    coordinator.hass.async_create_task(entity.async_remove())
 
         new_entities: list[Entity] = []
         for door_id, door in coordinator.data.items():

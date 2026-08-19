@@ -36,7 +36,11 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect."""
     session = async_get_clientsession(hass, verify_ssl=data["verify_ssl"])
-    ssl_context = ssl_util.client_context() if data["verify_ssl"] else None
+    ssl_context = None
+    if data["verify_ssl"]:
+        # Building the context loads certificates from disk, which must not
+        # block the event loop.
+        ssl_context = await hass.async_add_executor_job(ssl_util.client_context)
     client = UnifiAccessApiClient(
         host=data["host"],
         api_token=data["api_token"],

@@ -17,7 +17,13 @@ from homeassistant.util import ssl as ssl_util
 from unifi_access_api import ApiConnectionError, EmergencyStatus, UnifiAccessApiClient
 
 from .capture import async_remove_captures, async_setup_captures
-from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
+from .const import (
+    DOMAIN,
+    READER_STORAGE_KEY,
+    READER_STORAGE_VERSION,
+    STORAGE_KEY,
+    STORAGE_VERSION,
+)
 from .coordinator import UnifiAccessCoordinator
 from .frontend import async_register_card
 from .guest_pass import GuestPassManager
@@ -52,6 +58,23 @@ class UnifiAccessData:
 
 
 type UnifiAccessConfigEntry = ConfigEntry[UnifiAccessData]
+
+
+async def _async_setup_reader_store(hass: HomeAssistant, hub: UnifiAccessHub) -> None:
+    """Restore per-reader settings and let the hub persist later changes.
+
+    The anti-spoofing combination only takes effect while Face Unlock is
+    enabled; with it disabled the controller reports a placeholder instead of
+    the configured value, so it is kept here across restarts.
+    """
+    store: Store = Store(hass, READER_STORAGE_VERSION, READER_STORAGE_KEY)
+    stored = await store.async_load()
+    hub.restored_reader_settings = stored if isinstance(stored, dict) else {}
+
+    async def _save() -> None:
+        await store.async_save(hub.reader_settings_snapshot())
+
+    hub.save_reader_settings = _save
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: UnifiAccessConfigEntry) -> bool:
@@ -108,6 +131,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: UnifiAccessConfigEntry) 
         )
     )
     await emergency_coordinator.async_config_entry_first_refresh()
+
+    # Must run before discovery so each reader is created with its stored
+    # anti-spoofing combination already in place.
+    await _async_setup_reader_store(hass, hub)
 
     # Discover access readers and fetch their access-method settings
     # (non-fatal if the API calls fail). Also maps each door's hub type/id.

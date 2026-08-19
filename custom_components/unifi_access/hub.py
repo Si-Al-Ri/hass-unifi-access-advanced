@@ -49,6 +49,7 @@ from .const import (
     ACCESS_EXIT_EVENT,
     ACCESS_GENERIC_EVENT,
     ACCESS_METHOD_CAPABILITY_TOKENS,
+    ANTI_SPOOFING_COMBOS,
     ANTI_SPOOFING_OPTION_BY_PAIR,
     DOOR_TYPE_LOCK,
     DOORBELL_START_EVENT,
@@ -285,6 +286,16 @@ class UnifiAccessHub:
         # events that report a device/hub MAC instead of the door UUID.
         self._device_door_map: dict[str, str] = {}
 
+        # Per-reader settings restored from the Store, keyed by device id.
+        # Seeded into each ReaderState as the reader is discovered.
+        self.restored_reader_settings: dict[str, dict] = {}
+
+        # Set by __init__.py to persist the reader settings that the controller
+        # does not report reliably.
+        self.save_reader_settings: (
+            Callable[[], Coroutine[Any, Any, None]] | None
+        ) = None
+
         # Capture images: door id → (capture id, monotonic ts) awaiting the
         # thumbnail that the controller publishes shortly after the event.
         self._pending_capture: dict[str, tuple[str, float]] = {}
@@ -460,8 +471,19 @@ class UnifiAccessHub:
             # Keep the raw info fresh (capabilities / alias may change).
             self.readers[device_id].info = device
         else:
+            restored = self.restored_reader_settings.get(device_id)
+            combo = (
+                restored.get("anti_spoofing_combo")
+                if isinstance(restored, dict)
+                else None
+            )
             self.readers[device_id] = ReaderState(
-                device_id=device_id, door_id=door_id, info=device
+                device_id=device_id,
+                door_id=door_id,
+                info=device,
+                last_anti_spoofing_combo=(
+                    combo if combo in ANTI_SPOOFING_COMBOS else None
+                ),
             )
             _LOGGER.debug(
                 "unifi_access: discovered reader %s (%s) on door %s",
@@ -469,6 +491,32 @@ class UnifiAccessHub:
                 device_id,
                 door_id,
             )
+
+    def reader_settings_snapshot(self) -> dict[str, dict[str, str]]:
+        """Return the per-reader settings to persist, keyed by device id.
+
+        Restored entries for readers that are not currently discovered are
+        carried over, so a reader that is offline or undiscovered at startup
+        keeps its stored setting instead of being dropped on the next write.
+        """
+        snapshot: dict[str, dict[str, str]] = {}
+        for device_id, settings in self.restored_reader_settings.items():
+            if device_id in self.readers or not isinstance(settings, dict):
+                continue
+            combo = settings.get("anti_spoofing_combo")
+            if combo in ANTI_SPOOFING_COMBOS:
+                snapshot[device_id] = {"anti_spoofing_combo": combo}
+        for device_id, reader in self.readers.items():
+            if reader.last_anti_spoofing_combo:
+                snapshot[device_id] = {
+                    "anti_spoofing_combo": reader.last_anti_spoofing_combo
+                }
+        return snapshot
+
+    async def async_persist_reader_settings(self) -> None:
+        """Write the per-reader settings to the Store, if one is configured."""
+        if self.save_reader_settings is not None:
+            await self.save_reader_settings()
 
     async def async_refresh_all_readers(self) -> None:
         """Fetch access-method settings for every discovered reader."""
@@ -536,16 +584,22 @@ class UnifiAccessHub:
             access_methods,
         )
 
-        # Sticky anti-spoofing combo: adopt from a fetch only while face unlock
-        # is enabled; when disabled UniFi reports a default, so keep the last.
+        # Sticky anti-spoofing combo: the reported pair is only meaningful while
+        # face unlock is enabled (API ref 8.3). With it disabled the controller
+        # reports a placeholder, so the configured value is kept instead. The
+        # value is only seeded from a report when nothing is known yet.
         face = access_methods.get("face", {})
+        enabled = face.get("enabled") == "yes"
         combo = ANTI_SPOOFING_OPTION_BY_PAIR.get(
             (face.get("anti_spoofing_level"), face.get("detect_distance"))
         )
-        if combo and (
-            face.get("enabled") == "yes" or reader.last_anti_spoofing_combo is None
-        ):
+        if combo and (enabled or reader.last_anti_spoofing_combo is None):
+            changed = combo != reader.last_anti_spoofing_combo
             reader.last_anti_spoofing_combo = combo
+            # Only a value reported while face unlock is on reflects the real
+            # device setting and is worth persisting.
+            if changed and enabled:
+                await self.async_persist_reader_settings()
 
         self._notify_reader_ready(device_id)
         self._notify_doors_updated()
@@ -1228,12 +1282,28 @@ class UnifiAccessHub:
         if self.captures is None:
             return True
 
+        now = time.monotonic()
+        self._forget_stale_thumbnails(now)
         pending = self._pending_capture.pop(state.id, None)
-        if pending is not None and time.monotonic() - pending[1] <= _CAPTURE_WINDOW:
+        if pending is not None and now - pending[1] <= _CAPTURE_WINDOW:
             await self.captures.async_save(pending[0], image)
         else:
-            self._recent_thumbnail[state.id] = (image, time.monotonic())
+            self._recent_thumbnail[state.id] = (image, now)
         return True
+
+    def _forget_stale_thumbnails(self, now: float) -> None:
+        """Release held thumbnails that no event can claim any more.
+
+        Each entry holds the image bytes, so an unclaimed thumbnail is dropped
+        once it falls outside the backfill window instead of being kept for the
+        lifetime of the integration.
+        """
+        for door_id in [
+            door_id
+            for door_id, (_, seen) in self._recent_thumbnail.items()
+            if now - seen > _CAPTURE_BACKFILL_WINDOW
+        ]:
+            del self._recent_thumbnail[door_id]
 
     async def _handle_logs_add(self, msg: WebsocketMessage) -> None:
         """Handle access log messages.

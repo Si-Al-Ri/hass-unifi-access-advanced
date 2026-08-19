@@ -114,7 +114,8 @@
           "keep_unlock": "Tenerlo aperto",
           "lock_early": "Blocco anticipato",
           "lock_now": "Blocca ora",
-          "reset": "Azzeramento della regola"
+          "reset": "Azzeramento della regola",
+          "schedule": "Regola pianificata"
         }
       },
       "entity_type": {

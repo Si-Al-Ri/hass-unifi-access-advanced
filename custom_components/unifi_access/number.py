@@ -73,9 +73,11 @@ class TemporaryLockRuleIntervalNumberEntity(RestoreNumber):
         )
 
     async def async_added_to_hass(self) -> None:
-        """Add Unifi Access Door Lock Rule Interval to Home Assistant."""
+        """Restore the last configured interval and apply it to the door."""
         await super().async_added_to_hass()
-        await self.async_get_last_number_data()
+        last = await self.async_get_last_number_data()
+        if last and last.native_value is not None:
+            self._attr_native_value = last.native_value
         if self.native_value:
             self.door.lock_rule_interval = int(self.native_value)
 

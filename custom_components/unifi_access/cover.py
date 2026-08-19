@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta
 import logging
+import time
 from typing import Any
 
 from homeassistant.components.cover import (
@@ -214,7 +215,7 @@ class UnifiAccessCoverEntity(UnifiAccessDoorEntity, CoverEntity):
 
     async def async_open_cover(self, **kwargs: Any) -> None:
         """Open the cover — momentary unlock trigger."""
-        now = dt_util.now().timestamp()
+        now = time.monotonic()
         if now - self._last_trigger_time < 1.0:
             _LOGGER.debug("Door %s trigger rate limited", self.door.name)
             return
@@ -242,7 +243,7 @@ class UnifiAccessCoverEntity(UnifiAccessDoorEntity, CoverEntity):
 
     async def async_close_cover(self, **kwargs: Any) -> None:
         """Close the cover — same momentary unlock trigger activates the motor."""
-        now = dt_util.now().timestamp()
+        now = time.monotonic()
         if now - self._last_trigger_time < 1.0:
             _LOGGER.debug("Door %s trigger rate limited", self.door.name)
             return
@@ -276,7 +277,7 @@ class UnifiAccessCoverEntity(UnifiAccessDoorEntity, CoverEntity):
             and current_sensor_closed != self._last_sensor_state
         ):
             self._cancel_debounce_task()
-            self._debounce_task = asyncio.ensure_future(
+            self._debounce_task = self.hass.async_create_task(
                 self._debounced_sensor_check(current_sensor_closed)
             )
         self._last_sensor_state = current_sensor_closed

@@ -188,20 +188,16 @@ class GuestPassManager:
         )
         visitor_id = str(visitor["id"])
 
+        qr_image: str | None = None
         try:
             if pin is not None:
                 await self._hub.async_assign_visitor_pin(visitor_id, pin)
             if "qr" in creds:
                 await self._hub.async_assign_visitor_qr(visitor_id)
+                qr_image = await self._async_qr_data_uri(visitor_id)
         except RuntimeError:
-            # Roll back the half-created visitor so no orphan is left behind.
-            with contextlib.suppress(RuntimeError):
-                await self._hub.async_cancel_visitor(visitor_id)
+            await self._async_discard_visitor(visitor_id)
             raise
-
-        qr_image: str | None = None
-        if "qr" in creds:
-            qr_image = await self._async_qr_data_uri(visitor_id)
 
         record: dict[str, Any] = {
             "visitor_id": visitor_id,
@@ -224,6 +220,19 @@ class GuestPassManager:
         result.pop("door_ids", None)
         result.pop("created_at", None)
         return result
+
+    async def _async_discard_visitor(self, visitor_id: str) -> None:
+        """Remove a visitor that could not be fully set up.
+
+        Deletes it outright so no unusable entry is left in the visitor list.
+        Cancelling is the fallback if the delete is rejected, since leaving a
+        working pass behind would be worse than leaving a cancelled one.
+        """
+        try:
+            await self._hub.async_delete_visitor(visitor_id)
+        except RuntimeError:
+            with contextlib.suppress(RuntimeError):
+                await self._hub.async_cancel_visitor(visitor_id)
 
     async def async_extend(
         self, visitor_id: str, valid_from: int, valid_until: int

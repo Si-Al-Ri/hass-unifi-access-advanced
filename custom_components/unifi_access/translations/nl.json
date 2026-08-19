@@ -114,7 +114,8 @@
           "keep_unlock": "Hou het open",
           "lock_early": "Sluit vroeg",
           "lock_now": "Nu sluiten",
-          "reset": "Regel opnieuw instellen"
+          "reset": "Regel opnieuw instellen",
+          "schedule": "Geplande regel"
         }
       },
       "entity_type": {

@@ -173,6 +173,8 @@ For every reader / intercom the controller reports, this integration creates ent
 
 Requirements: UniFi Access **3.3.10 or later**, websocket mode (i.e. `Use polling` **not** selected). Changes made in the UniFi Access app are picked up automatically.
 
+> **Anti-spoofing while Face Unlock is off:** the level only takes effect when Face Unlock is enabled, and the controller reports a placeholder value while it is disabled. The integration remembers the configured level instead, so switching Face Unlock off (as in the example below) and on again keeps your security setting — across restarts too.
+
 <img src="screenshots/Control-Entitys-Intercom_ReaderPro.png" alt="Access-method control entities for an Intercom / Reader Pro" width="420">
 
 *Per-reader controls: Face Unlock, Anti-Spoofing level, Mobile Button/Tap, NFC, PIN, PIN keypad layout and QR code.*

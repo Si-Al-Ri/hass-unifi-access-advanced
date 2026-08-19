@@ -14,6 +14,13 @@ DOOR_TYPES = [DOOR_TYPE_LOCK, DOOR_TYPE_GARAGE, DOOR_TYPE_GATE]
 STORAGE_KEY = "unifi_access_entity_types"
 STORAGE_VERSION = 1
 
+# Persistent storage for per-reader settings the controller does not report
+# reliably. The anti-spoofing combination only takes effect while Face Unlock
+# is enabled (API ref 8.3); with it disabled the controller reports a
+# placeholder, so the configured value is kept here across restarts.
+READER_STORAGE_KEY = "unifi_access_reader_settings"
+READER_STORAGE_VERSION = 1
+
 
 DOORBELL_EVENT = "doorbell_press"
 DOORBELL_START_EVENT = "unifi_access_doorbell_start"

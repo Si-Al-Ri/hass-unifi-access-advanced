@@ -130,7 +130,8 @@
           "keep_unlock": "Keep it unlocked",
           "lock_early": "Lock early",
           "lock_now": "Lock now",
-          "reset": "Reset rule"
+          "reset": "Reset rule",
+          "schedule": "Scheduled rule"
         }
       },
       "entity_type": {

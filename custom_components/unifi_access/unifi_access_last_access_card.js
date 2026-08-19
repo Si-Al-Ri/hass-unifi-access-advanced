@@ -239,6 +239,9 @@ class UnifiAccessLastAccessCard extends HTMLElement {
     this._live = {};
     this._sub = false;
     this._unsub = null;
+    // Incremented on every disconnect so a subscription that resolves after
+    // the card is gone can be recognised and dropped instead of leaking.
+    this._gen = 0;
     // capture id → { url, until }, so re-rendering does not re-sign.
     this._urls = {};
   }
@@ -263,18 +266,31 @@ class UnifiAccessLastAccessCard extends HTMLElement {
   connectedCallback() {
     if (!this._sub) this._subscribe();
     // Keeps relative timestamps ("vor 3 min") fresh.
+    if (this._tick) clearInterval(this._tick);
     this._tick = setInterval(() => {
       if (this._hass) this._render();
     }, 30000);
   }
 
   disconnectedCallback() {
+    this._gen += 1;
     this._closeLightbox();
     if (this._tick) clearInterval(this._tick);
     this._tick = null;
-    if (typeof this._unsub === "function") this._unsub();
+    if (typeof this._unsub === "function") this._dropSubscription(this._unsub);
     this._unsub = null;
     this._sub = false;
+  }
+
+  // Unsubscribing returns a promise that rejects once the connection is gone;
+  // swallow it so a closed connection does not surface as an unhandled error.
+  _dropSubscription(unsub) {
+    try {
+      const result = unsub();
+      if (result && typeof result.then === "function") result.catch(() => {});
+    } catch (err) {
+      /* connection already closed */
+    }
   }
 
   // ---- i18n -------------------------------------------------------------
@@ -307,13 +323,20 @@ class UnifiAccessLastAccessCard extends HTMLElement {
   _subscribe() {
     if (this._sub || !this._hass || !this._hass.connection) return;
     this._sub = true;
+    const gen = this._gen;
     this._hass.connection
       .subscribeEvents((ev) => this._onStateEvent(ev), "state_changed")
       .then((unsub) => {
+        // The card was disconnected while subscribing — drop it right away,
+        // otherwise it would stay active with nothing holding its handle.
+        if (gen !== this._gen) {
+          this._dropSubscription(unsub);
+          return;
+        }
         this._unsub = unsub;
       })
       .catch(() => {
-        this._sub = false;
+        if (gen === this._gen) this._sub = false;
       });
   }
 
@@ -543,6 +566,7 @@ class UnifiAccessLastAccessCard extends HTMLElement {
     if (!this._list) return;
     this._headText.textContent = this._t("header");
     const events = this._events();
+    this._pruneUrls(events);
     if (!events.length) {
       this._list.className = "muted";
       this._list.textContent = this._t("empty");
@@ -674,6 +698,15 @@ class UnifiAccessLastAccessCard extends HTMLElement {
       if (url) img.src = url;
       else row.remove();
     });
+  }
+
+  // Drop cached URLs for events that are no longer listed, bounding the cache
+  // to the entries the card can currently show.
+  _pruneUrls(events) {
+    const listed = new Set(events.map((e) => e.capture).filter(Boolean));
+    for (const captureId of Object.keys(this._urls)) {
+      if (!listed.has(captureId)) delete this._urls[captureId];
+    }
   }
 
   // Home Assistant signs the endpoint path so the browser can load the image

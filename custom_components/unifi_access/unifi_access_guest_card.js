@@ -227,6 +227,9 @@ class UnifiAccessGuestCard extends HTMLElement {
     // Subscription handle for the `unifi_access_guest_arrived` HA bus event.
     this._sub = false;
     this._unsub = null;
+    // Incremented on every disconnect so a subscription that resolves after
+    // the card is gone can be recognised and dropped instead of leaking.
+    this._gen = 0;
   }
 
   setConfig(config) {
@@ -262,6 +265,7 @@ class UnifiAccessGuestCard extends HTMLElement {
   connectedCallback() {
     if (this._loaded) this._refresh();
     if (!this._sub) this._subscribe();
+    if (this._poll) clearInterval(this._poll);
     this._poll = setInterval(() => this._refresh(), 60000);
     this._onVisible = () => {
       if (document.visibilityState === "visible") this._refresh();
@@ -270,15 +274,27 @@ class UnifiAccessGuestCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this._gen += 1;
     if (this._poll) clearInterval(this._poll);
     this._poll = null;
     if (this._onVisible) {
       document.removeEventListener("visibilitychange", this._onVisible);
     }
     this._onVisible = null;
-    if (typeof this._unsub === "function") this._unsub();
+    if (typeof this._unsub === "function") this._dropSubscription(this._unsub);
     this._unsub = null;
     this._sub = false;
+  }
+
+  // Unsubscribing returns a promise that rejects once the connection is gone;
+  // swallow it so a closed connection does not surface as an unhandled error.
+  _dropSubscription(unsub) {
+    try {
+      const result = unsub();
+      if (result && typeof result.then === "function") result.catch(() => {});
+    } catch (err) {
+      /* connection already closed */
+    }
   }
 
   // Subscribe to the `unifi_access_guest_arrived` HA bus event so the card
@@ -286,13 +302,20 @@ class UnifiAccessGuestCard extends HTMLElement {
   _subscribe() {
     if (this._sub || !this._hass || !this._hass.connection) return;
     this._sub = true;
+    const gen = this._gen;
     this._hass.connection
       .subscribeEvents(() => this._refresh(), "unifi_access_guest_arrived")
       .then((unsub) => {
+        // The card was disconnected while subscribing — drop it right away,
+        // otherwise it would stay active with nothing holding its handle.
+        if (gen !== this._gen) {
+          this._dropSubscription(unsub);
+          return;
+        }
         this._unsub = unsub;
       })
       .catch(() => {
-        this._sub = false;
+        if (gen === this._gen) this._sub = false;
       });
   }
 

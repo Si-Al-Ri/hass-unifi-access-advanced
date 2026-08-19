@@ -114,7 +114,8 @@
           "keep_unlock": "保持解锁",
           "lock_early": "提前锁定",
           "lock_now": "立即锁定",
-          "reset": "重置规则"
+          "reset": "重置规则",
+          "schedule": "计划规则"
         }
       },
       "entity_type": {

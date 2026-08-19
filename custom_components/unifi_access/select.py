@@ -122,11 +122,17 @@ class TemporaryLockRuleSelectEntity(UnifiAccessDoorEntity, SelectEntity):
         self._update_options()
 
     def _update_options(self) -> None:
-        """Update Door Lock Rules without duplications."""
+        """Update Door Lock Rules without duplications.
+
+        The controller also reports rule types that are not user-selectable
+        (``schedule``, ``lock_now``). The reported one is added to the option
+        list so the current state stays a valid option instead of being
+        rejected by Home Assistant.
+        """
         lock_rule = self.coordinator.data[self.door.id].lock_rule
         self._attr_current_option = "" if lock_rule == "reset" else lock_rule
 
-        base_options = [
+        options = [
             "",
             "keep_lock",
             "keep_unlock",
@@ -135,9 +141,12 @@ class TemporaryLockRuleSelectEntity(UnifiAccessDoorEntity, SelectEntity):
         ]
 
         if self._attr_current_option == "schedule":
-            base_options.append("lock_early")
+            # A running schedule can be ended ahead of time.
+            options.append("lock_early")
+        if self._attr_current_option and self._attr_current_option not in options:
+            options.insert(1, self._attr_current_option)
 
-        self._attr_options = base_options
+        self._attr_options = options
 
     async def async_select_option(self, option: str) -> None:
         """Select Door Lock Rule."""
@@ -203,9 +212,11 @@ class FaceAntiSpoofingSelectEntity(UnifiAccessReaderEntity, SelectEntity):
             await self._hub.async_update_reader_settings(self.reader.device_id, payload)
         except RuntimeError as err:
             raise HomeAssistantError(str(err)) from err
-        # Store the selection so a later refresh does not overwrite it with a
-        # default value reported while face unlock is off.
+        # Keep the selection so a later refresh does not overwrite it with the
+        # placeholder reported while face unlock is off, and persist it so it
+        # survives a restart in that state.
         self.reader.last_anti_spoofing_combo = option
+        await self._hub.async_persist_reader_settings()
         await self._hub.async_refresh_reader_settings(self.reader.device_id)
 
     def _handle_coordinator_update(self) -> None:
